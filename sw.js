@@ -1,4 +1,4 @@
-const CACHE_NAME = 'uniread-v4.9.0';
+const CACHE_NAME = 'uniread-v4.10.0';
 const APP_SHELL = [
   './',
   './index.html',
