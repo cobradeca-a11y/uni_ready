@@ -2,12 +2,14 @@ import { $, escapeHtml, extOf, fileMeta, formatBytes } from './utils.js';
 import { renderFile } from './file-router.js';
 import { installAiPanel } from './ai-panel.js';
 import { applyLayout, runLayoutAction, installLayoutShortcuts } from './layout-controller.js';
+import { installMediaPlayer } from './media-player.js';
 
 const state = {
   files: [],
   activeIndex: -1,
   activeResult: null,
-  installPrompt: null
+  installPrompt: null,
+  mediaPlayer: null
 };
 
 const els = {
@@ -53,12 +55,13 @@ function renderList() {
   els.fileList.innerHTML = state.files.map((file, index) => {
     const ext = extOf(file) || 'file';
     const active = index === state.activeIndex ? ' active' : '';
+    const isMedia = state.mediaPlayer?.isMediaFile(file);
     return `
-      <button class="file-item${active}" type="button" data-index="${index}">
+      <button class="file-item${active}${isMedia ? ' media-file' : ''}" type="button" data-index="${index}">
         <span class="file-badge">${escapeHtml(ext.slice(0, 5).toUpperCase())}</span>
         <span class="file-label">
           <strong>${escapeHtml(file.name)}</strong>
-          <small>${formatBytes(file.size)}</small>
+          <small>${formatBytes(file.size)}${isMedia ? ' · mini player' : ''}</small>
         </span>
       </button>`;
   }).join('');
@@ -69,15 +72,23 @@ async function openFile(index) {
   if (!file) return;
 
   state.activeIndex = index;
-  state.activeResult = null;
   renderList();
-  els.emptyState.hidden = true;
-  els.viewerBody.hidden = false;
-  els.viewerBody.innerHTML = '<div class="preview-box media-preview"><div class="muted">Carregando prévia...</div></div>';
   els.currentName.textContent = file.name;
   els.currentMeta.textContent = fileMeta(file);
   els.downloadLink.href = URL.createObjectURL(file);
   els.downloadLink.download = file.name;
+
+  if (state.mediaPlayer?.isMediaFile(file)) {
+    state.mediaPlayer.load(file);
+    setActionVisibility(true, false);
+    toast('Mídia enviada para o mini player. A leitura à direita continua livre.');
+    return;
+  }
+
+  state.activeResult = null;
+  els.emptyState.hidden = true;
+  els.viewerBody.hidden = false;
+  els.viewerBody.innerHTML = '<div class="preview-box media-preview"><div class="muted">Carregando prévia...</div></div>';
   setActionVisibility(false);
 
   try {
@@ -112,18 +123,44 @@ function getAssistantContext() {
   return {
     activeFile: file ? { name: file.name, type: file.type, size: file.size, extension: extOf(file) } : null,
     activeText: visibleText.slice(0, 24000),
+    media: state.mediaPlayer?.getState?.() || null,
     files: state.files.map(item => ({ name: item.name, type: item.type, size: item.size, extension: extOf(item) })),
     layoutMode: document.body.dataset.mode || 'reader'
   };
 }
 
-function createAssistantButton() {
-  const button = document.createElement('button');
-  button.className = 'ghost-button ai-toggle';
-  button.type = 'button';
-  button.textContent = 'Assistente';
-  button.addEventListener('click', () => runLayoutAction({ type: 'open_ai_panel', payload: {} }));
-  document.querySelector('.top-actions')?.appendChild(button);
+function createTopButtons() {
+  const actions = document.querySelector('.top-actions');
+  if (!actions) return;
+
+  const theme = document.createElement('button');
+  theme.className = 'ghost-button compact-action';
+  theme.type = 'button';
+  theme.textContent = 'Claro/Escuro';
+  theme.addEventListener('click', () => {
+    const next = document.body.dataset.theme === 'light' ? 'dark' : 'light';
+    runLayoutAction({ type: 'set_theme', payload: { theme: next } });
+  });
+
+  const study = document.createElement('button');
+  study.className = 'ghost-button compact-action';
+  study.type = 'button';
+  study.textContent = 'Estudo';
+  study.addEventListener('click', () => runLayoutAction({ type: 'set_layout', payload: { mode: 'media-study', sidebar: true, support: false, aiPanel: false, readerWidth: 'comfortable', fontSize: 18, lineHeight: 1.8 } }));
+
+  const focus = document.createElement('button');
+  focus.className = 'ghost-button compact-action';
+  focus.type = 'button';
+  focus.textContent = 'Foco';
+  focus.addEventListener('click', () => runLayoutAction({ type: 'set_layout', payload: { mode: 'focus', sidebar: false, support: false, aiPanel: false, readerWidth: 'wide', fontSize: 18, lineHeight: 1.82 } }));
+
+  const assistant = document.createElement('button');
+  assistant.className = 'ghost-button ai-toggle';
+  assistant.type = 'button';
+  assistant.textContent = 'Assistente';
+  assistant.addEventListener('click', () => runLayoutAction({ type: 'open_ai_panel', payload: {} }));
+
+  actions.append(theme, study, focus, assistant);
 }
 
 function registerEvents() {
@@ -139,6 +176,10 @@ function registerEvents() {
   els.menuButton.addEventListener('click', () => els.sidebar.classList.toggle('open'));
   els.copyButton.addEventListener('click', copyCurrent);
   els.printButton.addEventListener('click', () => window.print());
+
+  window.addEventListener('uniread:media-mark', event => {
+    console.info('Media mark:', event.detail);
+  });
 
   ['dragenter', 'dragover'].forEach(eventName => {
     window.addEventListener(eventName, event => {
@@ -195,7 +236,8 @@ function registerServiceWorker() {
 }
 
 applyLayout();
-createAssistantButton();
+state.mediaPlayer = installMediaPlayer({ sidebar: els.sidebar, toast });
+createTopButtons();
 installAiPanel({ getContext: getAssistantContext, toast });
 installLayoutShortcuts();
 registerEvents();
