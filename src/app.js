@@ -133,34 +133,57 @@ function createTopButtons() {
   const actions = document.querySelector('.top-actions');
   if (!actions) return;
 
-  const theme = document.createElement('button');
-  theme.className = 'ghost-button compact-action';
-  theme.type = 'button';
-  theme.textContent = 'Claro/Escuro';
-  theme.addEventListener('click', () => {
-    const next = document.body.dataset.theme === 'light' ? 'dark' : 'light';
-    runLayoutAction({ type: 'set_theme', payload: { theme: next } });
+  const menuWrap = document.createElement('div');
+  menuWrap.className = 'mode-menu-wrap';
+
+  const modeButton = document.createElement('button');
+  modeButton.className = 'ghost-button mode-menu-button';
+  modeButton.type = 'button';
+  modeButton.textContent = 'Modos';
+  modeButton.setAttribute('aria-expanded', 'false');
+
+  const menu = document.createElement('div');
+  menu.className = 'mode-menu';
+  menu.hidden = true;
+
+  const items = [
+    ['Claro/Escuro', () => {
+      const next = document.body.dataset.theme === 'light' ? 'dark' : 'light';
+      runLayoutAction({ type: 'set_theme', payload: { theme: next } });
+    }],
+    ['Estudo', () => runLayoutAction({ type: 'set_layout', payload: { mode: 'media-study', sidebar: true, support: false, aiPanel: false, readerWidth: 'comfortable', fontSize: 18, lineHeight: 1.8 } })],
+    ['Foco', () => runLayoutAction({ type: 'set_layout', payload: { mode: 'focus', sidebar: false, support: false, aiPanel: false, readerWidth: 'wide', fontSize: 18, lineHeight: 1.82 } })],
+    ['Leitor', () => runLayoutAction({ type: 'set_layout', payload: { mode: 'reader', sidebar: true, support: true, aiPanel: false, readerWidth: 'normal', fontSize: 16, lineHeight: 1.72 } })],
+    ['Assistente', () => runLayoutAction({ type: 'open_ai_panel', payload: {} })]
+  ];
+
+  items.forEach(([label, handler]) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.textContent = label;
+    item.addEventListener('click', () => {
+      handler();
+      menu.hidden = true;
+      modeButton.setAttribute('aria-expanded', 'false');
+    });
+    menu.appendChild(item);
   });
 
-  const study = document.createElement('button');
-  study.className = 'ghost-button compact-action';
-  study.type = 'button';
-  study.textContent = 'Estudo';
-  study.addEventListener('click', () => runLayoutAction({ type: 'set_layout', payload: { mode: 'media-study', sidebar: true, support: false, aiPanel: false, readerWidth: 'comfortable', fontSize: 18, lineHeight: 1.8 } }));
+  modeButton.addEventListener('click', event => {
+    event.stopPropagation();
+    menu.hidden = !menu.hidden;
+    modeButton.setAttribute('aria-expanded', String(!menu.hidden));
+  });
 
-  const focus = document.createElement('button');
-  focus.className = 'ghost-button compact-action';
-  focus.type = 'button';
-  focus.textContent = 'Foco';
-  focus.addEventListener('click', () => runLayoutAction({ type: 'set_layout', payload: { mode: 'focus', sidebar: false, support: false, aiPanel: false, readerWidth: 'wide', fontSize: 18, lineHeight: 1.82 } }));
+  window.addEventListener('click', event => {
+    if (!menuWrap.contains(event.target)) {
+      menu.hidden = true;
+      modeButton.setAttribute('aria-expanded', 'false');
+    }
+  });
 
-  const assistant = document.createElement('button');
-  assistant.className = 'ghost-button ai-toggle';
-  assistant.type = 'button';
-  assistant.textContent = 'Assistente';
-  assistant.addEventListener('click', () => runLayoutAction({ type: 'open_ai_panel', payload: {} }));
-
-  actions.append(theme, study, focus, assistant);
+  menuWrap.append(modeButton, menu);
+  actions.append(menuWrap);
 }
 
 function toggleSidebarMenu() {
