@@ -163,6 +163,12 @@ function createTopButtons() {
   actions.append(theme, study, focus, assistant);
 }
 
+function toggleSidebarMenu() {
+  runLayoutAction({ type: 'toggle_sidebar', payload: { open: true } });
+  els.sidebar.classList.toggle('open');
+  if (els.sidebar.classList.contains('open')) toast('Painel aberto.');
+}
+
 function registerEvents() {
   els.fileInput.addEventListener('change', event => addFiles(event.target.files));
 
@@ -173,7 +179,7 @@ function registerEvents() {
     els.sidebar.classList.remove('open');
   });
 
-  els.menuButton.addEventListener('click', () => els.sidebar.classList.toggle('open'));
+  els.menuButton.addEventListener('click', toggleSidebarMenu);
   els.copyButton.addEventListener('click', copyCurrent);
   els.printButton.addEventListener('click', () => window.print());
 
