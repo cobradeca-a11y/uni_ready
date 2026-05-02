@@ -1,4 +1,4 @@
-const CACHE_NAME = 'uniread-v3.1.0';
+const CACHE_NAME = 'uniread-v3.2.0';
 const APP_SHELL = [
   './',
   './index.html',
@@ -103,12 +103,12 @@ async function decorateHtml(response) {
   if (!type.includes('text/html')) return response;
 
   let html = await response.text();
-  if (html.includes('data-uniread-polish="v3.1.0"')) {
+  if (html.includes('data-uniread-polish="v3.2.0"')) {
     return new Response(html, responseOptions(response));
   }
 
   const polish = `
-<style data-uniread-polish="v3.1.0">
+<style data-uniread-polish="v3.2.0">
 :root{--ur-glass:rgba(15,23,42,.72);--ur-line:rgba(148,163,184,.18);--ur-shadow:0 24px 80px rgba(0,0,0,.38)}
 body{background:radial-gradient(circle at 12% 5%,rgba(108,71,255,.28),transparent 32rem),radial-gradient(circle at 86% 0%,rgba(255,71,163,.18),transparent 30rem),linear-gradient(135deg,#020617,#090a18 48%,#111827)!important}
 body::before{opacity:.16!important;background-size:56px 56px!important}
@@ -136,7 +136,55 @@ main{width:min(1180px,calc(100% - 20px))!important;margin:14px auto 28px!importa
 #install-banner{width:min(1180px,calc(100% - 20px))!important;margin:12px auto 0!important;border:1px solid rgba(108,71,255,.32)!important;border-radius:18px!important;background:rgba(15,23,42,.72)!important;box-shadow:var(--ur-shadow)!important}
 #toast{border-radius:18px!important;background:rgba(15,23,42,.94)!important;box-shadow:var(--ur-shadow)!important}
 @media(max-width:760px){header,main,#install-banner{width:calc(100% - 14px)!important;margin-left:7px!important;margin-right:7px!important}main{display:flex!important}.header-actions{gap:6px!important}.btn{padding:8px 10px!important}#sidebar{width:min(86vw,320px)!important;border-radius:0 24px 24px 0!important}#viewer-area{border-radius:22px!important}.drop-ring{width:128px!important;height:128px!important}.drop-title{font-size:2.45rem!important}.drop-sub{font-size:.94rem!important}}
-</style>`;
+</style>
+<script data-uniread-polish="v3.2.0">
+(() => {
+  const toast = message => {
+    const existing = document.getElementById('toast');
+    if (existing) {
+      existing.textContent = message;
+      existing.classList.add('show');
+      setTimeout(() => existing.classList.remove('show'), 2800);
+    }
+  };
+
+  const deliverFilesToExistingApp = files => {
+    if (!files || !files.length) return false;
+    const input = document.getElementById('file-input') || document.querySelector('input[type="file"]');
+    if (!input || typeof DataTransfer === 'undefined') return false;
+    const transfer = new DataTransfer();
+    files.forEach(file => transfer.items.add(file));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    toast(files.length === 1 ? 'Arquivo recebido pelo UniRead.' : files.length + ' arquivos recebidos pelo UniRead.');
+    return true;
+  };
+
+  const queueDelivery = files => {
+    const run = () => {
+      if (!deliverFilesToExistingApp(files)) {
+        window.__unireadPendingFiles = files;
+        setTimeout(() => deliverFilesToExistingApp(window.__unireadPendingFiles || []), 600);
+      }
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once: true });
+    else run();
+  };
+
+  if ('launchQueue' in window && 'LaunchParams' in window) {
+    window.launchQueue.setConsumer(async launchParams => {
+      if (!launchParams.files || !launchParams.files.length) return;
+      const files = [];
+      for (const handle of launchParams.files) files.push(await handle.getFile());
+      queueDelivery(files);
+    });
+  }
+
+  navigator.serviceWorker?.addEventListener('message', event => {
+    if (event.data?.type === 'share-files') queueDelivery(event.data.files || []);
+  });
+})();
+</script>`;
 
   html = html.replace('</head>', `${polish}\n</head>`);
   return new Response(html, responseOptions(response));
