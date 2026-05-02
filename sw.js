@@ -1,10 +1,11 @@
-const CACHE_NAME = 'uniread-v4.1.0';
+const CACHE_NAME = 'uniread-v4.2.0';
 const APP_SHELL = [
   './',
   './index.html',
   './app.html',
   './manifest.json',
   './styles/app.css',
+  './styles/fixes.css',
   './src/app.js',
   './src/file-router.js',
   './src/utils.js',
