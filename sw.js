@@ -1,12 +1,16 @@
-const CACHE_NAME = 'uniread-v4.0.0';
+const CACHE_NAME = 'uniread-v4.1.0';
 const APP_SHELL = [
   './',
+  './index.html',
   './app.html',
   './manifest.json',
   './styles/app.css',
   './src/app.js',
   './src/file-router.js',
   './src/utils.js',
+  './src/ai-client.js',
+  './src/ai-panel.js',
+  './src/layout-controller.js',
   './icon-192.svg',
   './icon-512.svg'
 ];
