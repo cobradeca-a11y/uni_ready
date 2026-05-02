@@ -14,5 +14,5 @@
   <rect x="160" y="235" width="160" height="12" rx="6" fill="#8888aa"/>
   <rect x="160" y="265" width="116" height="12" rx="6" fill="#8888aa"/>
   <circle cx="256" cy="380" r="40" fill="url(#g1)"/>
-  <text x="96" y="394" text-anchor="middle" font-size="40" fill="white">U</text>
+  <text x="256" y="380" text-anchor="middle" dominant-baseline="central" font-size="42" font-family="sans-serif" font-weight="700" fill="white">U</text>
 </svg>
