@@ -33,7 +33,25 @@ export function installMediaPlayer({ sidebar, toast }) {
 
   function load(file) {
     currentFile = file;
-    if (currentUrl) URL.revokeObjectURL(currentUrl);
+
+    // Detach the old media element BEFORE revoking its URL,
+    // otherwise the browser may still be reading from it and throw errors.
+    if (media) {
+      media.pause();
+      media.removeAttribute('src');
+      media.load(); // flushes the decode pipeline
+      media = null;
+    }
+
+    if (currentUrl) {
+      URL.revokeObjectURL(currentUrl);
+      currentUrl = null;
+    }
+
+    // Reset loop points for the new file.
+    loopA = null;
+    loopB = null;
+
     currentUrl = URL.createObjectURL(file);
 
     const isVideo = file.type.startsWith('video/') || ['mp4','webm','mov','mkv','avi','ogv','m4v','3gp'].includes(extOf(file));

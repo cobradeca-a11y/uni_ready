@@ -42,8 +42,21 @@ function toast(message) {
 function addFiles(fileList) {
   const files = [...fileList].filter(Boolean);
   if (!files.length) return;
+
+  const baseIndex = state.files.length;
   state.files.push(...files);
-  if (state.activeIndex < 0) state.activeIndex = 0;
+
+  // Prefer showing first non-media file in the viewer on initial load.
+  if (state.activeIndex < 0) {
+    const nonMediaOffset = firstNonMediaIndex(files);
+    state.activeIndex = nonMediaOffset >= 0 ? baseIndex + nonMediaOffset : baseIndex;
+  }
+
+  // Load all media files in this batch into the player (last one wins).
+  files.forEach(file => {
+    if (state.mediaPlayer?.isMediaFile(file)) state.mediaPlayer.load(file);
+  });
+
   renderList();
   openFile(state.activeIndex);
   toast(files.length === 1 ? 'Arquivo carregado.' : `${files.length} arquivos carregados.`);
@@ -82,12 +95,21 @@ async function openFile(index) {
   els.downloadLink.download = file.name;
 
   if (state.mediaPlayer?.isMediaFile(file)) {
+    // Load into mini-player but do NOT touch the viewer — it stays with whatever it had.
+    // If the viewer is still showing empty state, clear it so it doesn't look broken.
     state.mediaPlayer.load(file);
     setActionVisibility(true, false);
     toast('Mídia enviada para o mini player. A leitura à direita continua livre.');
+
+    // If viewer body is still hidden (no file was opened before), show a placeholder
+    // so the right panel isn't a blank void.
+    if (els.viewerBody.hidden && els.emptyState) {
+      els.emptyState.hidden = false;
+    }
     return;
   }
 
+  // Non-media file: always populate the viewer, regardless of what was loaded before.
   state.activeResult = null;
   els.emptyState.hidden = true;
   els.viewerBody.hidden = false;
@@ -104,6 +126,15 @@ async function openFile(index) {
     els.viewerBody.innerHTML = `<div class="preview-box unsupported"><div><strong>Falha ao abrir</strong><p>${escapeHtml(error.message || String(error))}</p></div></div>`;
     setActionVisibility(true, false);
   }
+}
+
+// Returns the index of the first non-media file in a list, or -1 if all are media.
+function firstNonMediaIndex(files) {
+  if (!state.mediaPlayer) return 0;
+  for (let i = 0; i < files.length; i++) {
+    if (!state.mediaPlayer.isMediaFile(files[i])) return i;
+  }
+  return -1;
 }
 
 function setActionVisibility(show, canCopy = false) {
