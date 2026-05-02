@@ -22,6 +22,8 @@ export function installMediaPlayer({ sidebar, toast }) {
   let loopA = null;
   let loopB = null;
   let transcribing = false;
+  let speechRecognition = null;
+  let speechActive = false;
   const marks = [];
 
   function isMediaFile(file) {
@@ -68,11 +70,18 @@ export function installMediaPlayer({ sidebar, toast }) {
         ${isVideo ? '<button type="button" id="miniPip">PiP</button>' : ''}
       </div>
       <details class="transcribe-box">
-        <summary>Transcrição IA</summary>
-        <label>Endpoint<input id="transcribeEndpoint" value="${escapeHtml(config.endpoint)}" placeholder="/api/transcribe"></label>
+        <summary>Transcrição</summary>
+        <div class="mini-controls secondary web-speech-actions">
+          <button type="button" id="webSpeechStart">Web Speech grátis</button>
+          <button type="button" id="webSpeechStop">Parar</button>
+        </div>
+        <label>Idioma Web Speech<select id="speechLang"><option value="pt-BR">Português Brasil</option><option value="en-US">English US</option><option value="es-ES">Español</option></select></label>
+        <p class="mini-hint">Grátis: usa o microfone do navegador. Serve para fala ao vivo ou áudio tocando no ambiente. Não lê arquivo salvo diretamente.</p>
+        <hr class="mini-separator" />
+        <label>Endpoint IA paga/local<input id="transcribeEndpoint" value="${escapeHtml(config.endpoint)}" placeholder="/api/transcribe"></label>
         <div class="mini-controls secondary">
           <button type="button" id="saveTranscribeEndpoint">Salvar endpoint</button>
-          <button type="button" id="transcribeMedia">Transcrever IA</button>
+          <button type="button" id="transcribeMedia">Transcrever arquivo</button>
         </div>
         <p class="mini-hint">Envia este áudio/vídeo ao backend configurado. Limite padrão: 25 MB.</p>
       </details>
@@ -119,6 +128,8 @@ export function installMediaPlayer({ sidebar, toast }) {
       toast?.('Endpoint de transcrição salvo.');
     });
     root.querySelector('#transcribeMedia').addEventListener('click', transcribeCurrentMedia);
+    root.querySelector('#webSpeechStart').addEventListener('click', startWebSpeech);
+    root.querySelector('#webSpeechStop').addEventListener('click', stopWebSpeech);
   }
 
   function addMark(label = '', time = null, meta = {}) {
@@ -138,6 +149,59 @@ export function installMediaPlayer({ sidebar, toast }) {
     if (meta.silent !== true) toast?.(`Nota criada em ${formatTime(mark.time)}.`);
   }
 
+  function startWebSpeech() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast?.('Web Speech não está disponível neste navegador. Teste no Chrome/Edge.');
+      return;
+    }
+    if (speechActive) return;
+
+    speechRecognition = new SpeechRecognition();
+    speechRecognition.lang = root.querySelector('#speechLang')?.value || 'pt-BR';
+    speechRecognition.continuous = true;
+    speechRecognition.interimResults = false;
+    speechActive = true;
+
+    speechRecognition.onresult = event => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (!result.isFinal) continue;
+        const text = result[0]?.transcript?.trim();
+        if (text) addMark(text, media?.currentTime || 0, { source: 'web-speech', silent: true });
+      }
+      toast?.('Trecho capturado pelo Web Speech.');
+    };
+
+    speechRecognition.onerror = event => {
+      speechActive = false;
+      toast?.(`Web Speech parou: ${event.error || 'erro'}.`);
+    };
+
+    speechRecognition.onend = () => {
+      if (speechActive) {
+        try { speechRecognition.start(); }
+        catch { speechActive = false; }
+      }
+    };
+
+    try {
+      speechRecognition.start();
+      toast?.('Web Speech iniciado. Permita o microfone.');
+    } catch (error) {
+      speechActive = false;
+      toast?.(`Não foi possível iniciar: ${error.message}`);
+    }
+  }
+
+  function stopWebSpeech() {
+    speechActive = false;
+    if (speechRecognition) {
+      try { speechRecognition.stop(); } catch {}
+    }
+    toast?.('Web Speech parado.');
+  }
+
   async function transcribeCurrentMedia() {
     if (!currentFile || transcribing) return;
     const endpoint = root.querySelector('#transcribeEndpoint')?.value.trim() || getTranscribeConfig().endpoint;
@@ -147,7 +211,7 @@ export function installMediaPlayer({ sidebar, toast }) {
     const button = root.querySelector('#transcribeMedia');
     button.disabled = true;
     button.textContent = 'Transcrevendo...';
-    toast?.('Enviando mídia para transcrição IA.');
+    toast?.('Enviando mídia para transcrição.');
 
     try {
       const data = await sendToTranscriptionBackend(endpoint, currentFile);
@@ -167,7 +231,7 @@ export function installMediaPlayer({ sidebar, toast }) {
     } finally {
       transcribing = false;
       button.disabled = false;
-      button.textContent = 'Transcrever IA';
+      button.textContent = 'Transcrever arquivo';
     }
   }
 
@@ -175,7 +239,7 @@ export function installMediaPlayer({ sidebar, toast }) {
     const box = root.querySelector('#miniMarks');
     if (!box) return;
     box.innerHTML = marks.slice(-40).map(mark => `
-      <button type="button" class="mini-mark ${mark.source === 'transcription' ? 'transcript-mark' : ''}" data-time="${mark.time}">
+      <button type="button" class="mini-mark ${['transcription','web-speech'].includes(mark.source) ? 'transcript-mark' : ''}" data-time="${mark.time}">
         <strong>${formatTime(mark.time)}</strong><span>${escapeHtml(mark.text || 'Sem nota')}</span>
       </button>
     `).join('');
@@ -183,7 +247,7 @@ export function installMediaPlayer({ sidebar, toast }) {
   }
 
   function getState() {
-    return { file: currentFile?.name || null, currentTime: media?.currentTime || 0, duration: media?.duration || 0, marks: [...marks], hasMedia: Boolean(media) };
+    return { file: currentFile?.name || null, currentTime: media?.currentTime || 0, duration: media?.duration || 0, marks: [...marks], hasMedia: Boolean(media), speechActive };
   }
 
   return { load, isMediaFile, getState, addMark };
