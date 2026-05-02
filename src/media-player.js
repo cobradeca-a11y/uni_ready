@@ -1,5 +1,7 @@
 import { escapeHtml, extOf, formatBytes } from './utils.js';
 
+const TRANSCRIBE_CONFIG_KEY = 'uniread.transcribe.config.v1';
+
 export function installMediaPlayer({ sidebar, toast }) {
   const section = document.createElement('section');
   section.className = 'panel-section media-section';
@@ -19,6 +21,7 @@ export function installMediaPlayer({ sidebar, toast }) {
   let currentFile = null;
   let loopA = null;
   let loopB = null;
+  let transcribing = false;
   const marks = [];
 
   function isMediaFile(file) {
@@ -32,6 +35,7 @@ export function installMediaPlayer({ sidebar, toast }) {
     currentUrl = URL.createObjectURL(file);
 
     const isVideo = file.type.startsWith('video/') || ['mp4','webm','mov','mkv','avi','ogv','m4v','3gp'].includes(extOf(file));
+    const config = getTranscribeConfig();
     root.className = 'mini-player active' + (isVideo ? ' video-mode' : ' audio-mode');
     root.innerHTML = `
       <div class="mini-title">
@@ -63,6 +67,15 @@ export function installMediaPlayer({ sidebar, toast }) {
         <button type="button" id="markTime">Nota</button>
         ${isVideo ? '<button type="button" id="miniPip">PiP</button>' : ''}
       </div>
+      <details class="transcribe-box">
+        <summary>Transcrição IA</summary>
+        <label>Endpoint<input id="transcribeEndpoint" value="${escapeHtml(config.endpoint)}" placeholder="/api/transcribe"></label>
+        <div class="mini-controls secondary">
+          <button type="button" id="saveTranscribeEndpoint">Salvar endpoint</button>
+          <button type="button" id="transcribeMedia">Transcrever IA</button>
+        </div>
+        <p class="mini-hint">Envia este áudio/vídeo ao backend configurado. Limite padrão: 25 MB.</p>
+      </details>
       <div class="mini-marks" id="miniMarks"></div>
     `;
 
@@ -100,23 +113,69 @@ export function installMediaPlayer({ sidebar, toast }) {
       try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await media.requestPictureInPicture(); }
       catch { toast?.('Picture-in-picture indisponível neste navegador.'); }
     });
+    root.querySelector('#saveTranscribeEndpoint').addEventListener('click', () => {
+      const endpoint = root.querySelector('#transcribeEndpoint').value.trim() || './api/transcribe';
+      saveTranscribeConfig({ endpoint });
+      toast?.('Endpoint de transcrição salvo.');
+    });
+    root.querySelector('#transcribeMedia').addEventListener('click', transcribeCurrentMedia);
   }
 
-  function addMark(label = '') {
+  function addMark(label = '', time = null, meta = {}) {
     if (!media || !currentFile) return;
     const text = label || prompt('Nota para este tempo:') || '';
-    const mark = { time: media.currentTime, text, file: currentFile.name, createdAt: new Date().toISOString() };
+    const mark = {
+      time: Number.isFinite(time) ? time : media.currentTime,
+      end: Number.isFinite(meta.end) ? meta.end : null,
+      text,
+      file: currentFile.name,
+      source: meta.source || 'manual',
+      createdAt: new Date().toISOString()
+    };
     marks.push(mark);
     renderMarks();
     window.dispatchEvent(new CustomEvent('uniread:media-mark', { detail: mark }));
-    toast?.(`Nota criada em ${formatTime(mark.time)}.`);
+    if (meta.silent !== true) toast?.(`Nota criada em ${formatTime(mark.time)}.`);
+  }
+
+  async function transcribeCurrentMedia() {
+    if (!currentFile || transcribing) return;
+    const endpoint = root.querySelector('#transcribeEndpoint')?.value.trim() || getTranscribeConfig().endpoint;
+    saveTranscribeConfig({ endpoint });
+
+    transcribing = true;
+    const button = root.querySelector('#transcribeMedia');
+    button.disabled = true;
+    button.textContent = 'Transcrevendo...';
+    toast?.('Enviando mídia para transcrição IA.');
+
+    try {
+      const data = await sendToTranscriptionBackend(endpoint, currentFile);
+      const segments = Array.isArray(data.segments) ? data.segments : [];
+      if (!segments.length && data.text) {
+        addMark(data.text, 0, { source: 'transcription', silent: true });
+      } else {
+        for (const segment of segments.slice(0, 250)) {
+          addMark(segment.text, Number(segment.start || 0), { end: Number(segment.end || 0), source: 'transcription', silent: true });
+        }
+      }
+      renderMarks();
+      toast?.(`Transcrição importada: ${segments.length || 1} trecho(s).`);
+      window.dispatchEvent(new CustomEvent('uniread:transcription', { detail: data }));
+    } catch (error) {
+      toast?.(`Falha na transcrição: ${error.message}`);
+    } finally {
+      transcribing = false;
+      button.disabled = false;
+      button.textContent = 'Transcrever IA';
+    }
   }
 
   function renderMarks() {
     const box = root.querySelector('#miniMarks');
     if (!box) return;
-    box.innerHTML = marks.slice(-8).map(mark => `
-      <button type="button" class="mini-mark" data-time="${mark.time}">
+    box.innerHTML = marks.slice(-40).map(mark => `
+      <button type="button" class="mini-mark ${mark.source === 'transcription' ? 'transcript-mark' : ''}" data-time="${mark.time}">
         <strong>${formatTime(mark.time)}</strong><span>${escapeHtml(mark.text || 'Sem nota')}</span>
       </button>
     `).join('');
@@ -128,6 +187,27 @@ export function installMediaPlayer({ sidebar, toast }) {
   }
 
   return { load, isMediaFile, getState, addMark };
+}
+
+async function sendToTranscriptionBackend(endpoint, file) {
+  const form = new FormData();
+  form.append('file', file, file.name || 'media-file');
+  const response = await fetch(endpoint, { method: 'POST', body: form });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+function getTranscribeConfig() {
+  try {
+    return { endpoint: './api/transcribe', ...JSON.parse(localStorage.getItem(TRANSCRIBE_CONFIG_KEY) || '{}') };
+  } catch {
+    return { endpoint: './api/transcribe' };
+  }
+}
+
+function saveTranscribeConfig(config) {
+  localStorage.setItem(TRANSCRIBE_CONFIG_KEY, JSON.stringify(config));
 }
 
 function formatTime(value) {
