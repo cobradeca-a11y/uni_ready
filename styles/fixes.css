@@ -56,10 +56,9 @@ body[data-theme="light"] .support-grid span, body[data-theme="light"] .file-badg
   .viewer-card { width: 100%; min-height: calc(100dvh - 92px); border-radius: 22px; }
   .drop-zone { min-height: calc(100dvh - 164px); padding: 10px; }
   .drop-hero, .viewer-body, .preview-box { min-height: calc(100dvh - 194px); }
-  .sidebar { display: block !important; position: fixed !important; top: 0; left: 0; bottom: 0; width: min(88vw, 360px) !important; max-height: none !important; transform: translateX(-106%); z-index: 120; border-radius: 0 26px 26px 0; box-shadow: 28px 0 90px rgba(0,0,0,.52); transition: transform .22s ease; overflow-y: auto; }
+  .sidebar { display: block !important; position: fixed !important; top: 0; left: 0; bottom: 0; width: min(88vw, 360px) !important; max-height: none !important; transform: translateX(-106%); z-index: 10000 !important; border-radius: 0 26px 26px 0; box-shadow: 28px 0 90px rgba(0,0,0,.52); transition: transform .22s ease; overflow-y: auto; }
   .sidebar.open { transform: translateX(0); }
-  body:has(.sidebar.open)::after { content: ""; position: fixed; inset: 0; z-index: 110; background: rgba(2,6,23,.62); backdrop-filter: blur(3px); }
-  body:has(.sidebar.open) .sidebar { z-index: 121; }
+  .app-shell:has(.sidebar.open)::after { content: ""; position: fixed; inset: 0; z-index: 9990; background: rgba(2,6,23,.62); backdrop-filter: blur(3px); pointer-events: none; }
   .mini-stage video { max-height: 180px; }
 }
 
