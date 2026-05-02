@@ -1,5 +1,5 @@
-const CACHE_NAME = 'uniread-v2.0';
-const ASSETS = [
+const CACHE_NAME = 'uniread-v3.0.0';
+const APP_SHELL = [
   './',
   './index.html',
   './manifest.json',
@@ -7,69 +7,96 @@ const ASSETS = [
   './icon-512.svg'
 ];
 
-self.addEventListener('install', e => {
-  e.waitUntil(
+self.addEventListener('install', event => {
+  event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(c => c.addAll(ASSETS))
+      .then(cache => cache.addAll(APP_SHELL))
       .then(() => self.skipWaiting())
   );
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
+self.addEventListener('activate', event => {
+  event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
       ))
       .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('fetch', e => {
-  // Cache-first for app assets, network-first for CDN libs
-  const url = new URL(e.request.url);
-  const isCDN = url.hostname.includes('cdnjs') || url.hostname.includes('fonts');
-  
+self.addEventListener('fetch', event => {
+  const request = event.request;
+  const url = new URL(request.url);
+
+  if (request.method === 'POST' && url.pathname.endsWith('/index.html')) {
+    event.respondWith(handleShareTarget(event));
+    return;
+  }
+
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  const isNavigation = request.mode === 'navigate';
+  const isCDN = url.hostname.includes('cdnjs.cloudflare.com') || url.hostname.includes('cdn.jsdelivr.net') || url.hostname.includes('fonts.googleapis.com') || url.hostname.includes('fonts.gstatic.com');
+  const isLocal = url.origin === self.location.origin;
+
+  if (isNavigation) {
+    event.respondWith(networkFirst(request, './index.html'));
+    return;
+  }
+
   if (isCDN) {
-    // Network-first with cache fallback for CDN
-    e.respondWith(
-      fetch(e.request)
-        .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-          return res;
-        })
-        .catch(() => caches.match(e.request))
-    );
-  } else {
-    // Cache-first for local assets
-    e.respondWith(
-      caches.match(e.request)
-        .then(cached => cached || fetch(e.request)
-          .then(res => {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-            return res;
-          })
-          .catch(() => caches.match('./index.html'))
-        )
-    );
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  if (isLocal) {
+    event.respondWith(cacheFirst(request));
   }
 });
 
-// Handle share target
-self.addEventListener('fetch', e => {
-  if (e.request.method === 'POST' && e.request.url.includes('index.html')) {
-    e.respondWith(
-      (async () => {
-        const data = await e.request.formData();
-        const client = await self.clients.get(e.resultingClientId || e.clientId);
-        const files = data.getAll('file');
-        if (client && files.length) {
-          client.postMessage({ type: 'share-files', files });
-        }
-        return Response.redirect('./index.html', 303);
-      })()
-    );
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+
+  const response = await fetch(request);
+  if (response && response.ok) {
+    const cache = await caches.open(CACHE_NAME);
+    cache.put(request, response.clone());
   }
-});
+  return response;
+}
+
+async function networkFirst(request, fallbackUrl) {
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      const cache = await caches.open(CACHE_NAME);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (error) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    if (fallbackUrl) return caches.match(fallbackUrl);
+    throw error;
+  }
+}
+
+async function handleShareTarget(event) {
+  try {
+    const formData = await event.request.formData();
+    const files = formData.getAll('file').filter(Boolean);
+    const client = await self.clients.get(event.resultingClientId || event.clientId);
+
+    if (client && files.length) {
+      client.postMessage({ type: 'share-files', files });
+    }
+  } catch (error) {
+    console.warn('Share target failed:', error);
+  }
+
+  return Response.redirect('./index.html', 303);
+}
