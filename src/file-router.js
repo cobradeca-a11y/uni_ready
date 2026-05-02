@@ -1,7 +1,7 @@
 import { escapeHtml, extOf, waitForGlobal } from './utils.js';
 
 const textExtensions = new Set([
-  'txt', 'log', 'ini', 'cfg', 'env', 'toml', 'yml', 'yaml', 'xml', 'svg', 'css', 'js', 'mjs', 'cjs', 'ts', 'jsx', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'cs', 'go', 'rs', 'php', 'rb', 'swift', 'kt', 'sql', 'r', 'tex', 'bat', 'sh'
+  'txt', 'log', 'ini', 'cfg', 'env', 'toml', 'yml', 'yaml', 'xml', 'css', 'js', 'mjs', 'cjs', 'ts', 'jsx', 'tsx', 'py', 'java', 'c', 'cpp', 'h', 'cs', 'go', 'rs', 'php', 'rb', 'swift', 'kt', 'sql', 'r', 'tex', 'bat', 'sh'
 ]);
 
 const limitedExtensions = new Set(['doc', 'ppt', 'pptx', 'odt', 'odp', 'rar', '7z', 'heic', 'heif', 'raw', 'cr2', 'nef', 'psd', 'ai', 'indd']);
@@ -10,13 +10,14 @@ export async function renderFile(file) {
   const ext = extOf(file);
   const type = file.type || '';
 
-  if (type.startsWith('image/') && ext !== 'svg') return renderImage(file);
+  if (ext === 'svg') return renderSvg(file);
+  if (type.startsWith('image/')) return renderImage(file);
   if (type.startsWith('audio/')) return renderAudio(file);
   if (type.startsWith('video/')) return renderVideo(file);
   if (type === 'application/pdf' || ext === 'pdf') return renderPdf(file);
   if (ext === 'md' || ext === 'markdown') return renderMarkdown(file);
   if (ext === 'json' || type.includes('json')) return renderJson(file);
-  if (ext === 'csv') return renderCsv(file);
+  if (ext === 'csv' || ext === 'tsv') return renderCsv(file);
   if (ext === 'html' || ext === 'htm' || type === 'text/html') return renderHtmlFile(file);
   if (ext === 'docx') return renderDocx(file);
   if (['xlsx', 'xls', 'ods'].includes(ext)) return renderSpreadsheet(file);
@@ -59,7 +60,8 @@ async function renderJson(file) {
 
 async function renderCsv(file) {
   const text = await file.text();
-  const rows = parseCsv(text);
+  const separator = extOf(file) === 'tsv' ? '\t' : detectSeparator(text);
+  const rows = parseCsv(text, separator);
   const table = rows.slice(0, 500).map((row, rowIndex) => {
     const cells = row.map(cell => rowIndex === 0 ? `<th>${escapeHtml(cell)}</th>` : `<td>${escapeHtml(cell)}</td>`).join('');
     return `<tr>${cells}</tr>`;
@@ -71,7 +73,13 @@ async function renderCsv(file) {
   };
 }
 
-function parseCsv(text) {
+function detectSeparator(text) {
+  const firstLine = text.split(/\r?\n/).find(line => line.trim()) || '';
+  const candidates = [',', ';', '\t', '|'];
+  return candidates.map(separator => ({ separator, count: firstLine.split(separator).length })).sort((a, b) => b.count - a.count)[0]?.separator || ',';
+}
+
+function parseCsv(text, separator = ',') {
   const rows = [];
   let row = [];
   let cell = '';
@@ -81,7 +89,7 @@ function parseCsv(text) {
     const next = text[i + 1];
     if (char === '"' && quoted && next === '"') { cell += '"'; i++; continue; }
     if (char === '"') { quoted = !quoted; continue; }
-    if (char === ',' && !quoted) { row.push(cell); cell = ''; continue; }
+    if (char === separator && !quoted) { row.push(cell); cell = ''; continue; }
     if ((char === '\n' || char === '\r') && !quoted) {
       if (char === '\r' && next === '\n') i++;
       row.push(cell);
@@ -124,6 +132,16 @@ function renderImage(file) {
   };
 }
 
+async function renderSvg(file) {
+  const text = await file.text();
+  const url = URL.createObjectURL(new Blob([text], { type: 'image/svg+xml' }));
+  return {
+    kind: 'svg',
+    copyText: text,
+    html: `<div class="preview-box media-preview"><img alt="${escapeHtml(file.name)}" src="${url}"></div>`
+  };
+}
+
 function renderAudio(file) {
   const url = URL.createObjectURL(file);
   return {
@@ -146,6 +164,7 @@ async function renderDocx(file) {
   const result = await mammoth.convertToHtml({ arrayBuffer });
   return {
     kind: 'docx',
+    copyText: stripHtml(result.value || ''),
     html: `<article class="preview-box preview-pad preview-html">${result.value || '<p>Documento sem conteúdo extraído.</p>'}</article>`
   };
 }
@@ -154,9 +173,12 @@ async function renderSpreadsheet(file) {
   const XLSX = await waitForGlobal('XLSX');
   const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array' });
   const firstSheet = workbook.SheetNames[0];
-  const html = firstSheet ? XLSX.utils.sheet_to_html(workbook.Sheets[firstSheet]) : '<p>Planilha vazia.</p>';
+  const sheet = firstSheet ? workbook.Sheets[firstSheet] : null;
+  const html = sheet ? XLSX.utils.sheet_to_html(sheet) : '<p>Planilha vazia.</p>';
+  const csv = sheet ? XLSX.utils.sheet_to_csv(sheet) : '';
   return {
     kind: 'sheet',
+    copyText: csv,
     html: `<div class="preview-box preview-pad table-wrap"><h2>${escapeHtml(firstSheet || 'Planilha')}</h2>${html}</div>`
   };
 }
@@ -183,4 +205,10 @@ function renderUnsupported(file, ext) {
     kind: 'unsupported',
     html: `<div class="preview-box unsupported"><div><strong>Formato não reconhecido</strong><p>${escapeHtml(ext ? '.' + ext : file.type || 'Tipo desconhecido')}. Use o botão Baixar para abrir em outro aplicativo.</p></div></div>`
   };
+}
+
+function stripHtml(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  return div.textContent || div.innerText || '';
 }
