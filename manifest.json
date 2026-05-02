@@ -1,14 +1,14 @@
 {
-  "id": "./",
+  "id": "./app.html",
   "name": "UniRead — Leitor Universal",
   "short_name": "UniRead",
-  "description": "Leitor universal de arquivos: documentos, imagens, código, dados, áudio, vídeo e mais.",
-  "start_url": "./index.html",
+  "description": "Leitor universal local de arquivos: documentos, imagens, código, dados, áudio, vídeo e mais.",
+  "start_url": "./app.html",
   "scope": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
-  "background_color": "#0a0a0f",
-  "theme_color": "#6c47ff",
+  "background_color": "#050816",
+  "theme_color": "#0f172a",
   "orientation": "any",
   "lang": "pt-BR",
   "launch_handler": {
@@ -30,7 +30,7 @@
   ],
   "file_handlers": [
     {
-      "action": "./index.html",
+      "action": "./app.html",
       "accept": {
         "text/*": [".txt", ".md", ".csv", ".log", ".html", ".htm", ".css", ".js", ".ts", ".json", ".xml", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".env", ".sh", ".bat", ".py", ".java", ".c", ".cpp", ".h", ".rs", ".go", ".php", ".rb", ".swift", ".kt", ".sql", ".r", ".tex", ".rtf"],
         "application/pdf": [".pdf"],
@@ -54,7 +54,7 @@
     }
   ],
   "share_target": {
-    "action": "./index.html",
+    "action": "./app.html",
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {
