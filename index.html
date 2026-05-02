@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="description" content="UniRead — leitor universal local de arquivos para PWA." />
+  <meta http-equiv="refresh" content="0; url=app.html" />
+  <title>UniRead — Leitor Universal</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.svg" type="image/svg+xml" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100dvh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #e5edf8;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(56, 189, 248, .22), transparent 34rem),
+        radial-gradient(circle at 92% 0%, rgba(167, 139, 250, .18), transparent 32rem),
+        linear-gradient(135deg, #020617, #050816 48%, #111827);
+    }
+    main {
+      width: min(92vw, 520px);
+      padding: 28px;
+      border: 1px solid rgba(148, 163, 184, .18);
+      border-radius: 28px;
+      background: rgba(15, 23, 42, .72);
+      box-shadow: 0 28px 90px rgba(0, 0, 0, .42);
+      text-align: center;
+      backdrop-filter: blur(22px);
+    }
+    .mark {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 18px;
+      display: grid;
+      place-items: center;
+      border-radius: 22px;
+      font-weight: 950;
+      color: #020617;
+      background: linear-gradient(135deg, #38bdf8, #a78bfa, #f472b6);
+    }
+    h1 { margin: 0 0 8px; letter-spacing: -.06em; }
+    p { margin: 0 0 20px; color: #9fb0c7; line-height: 1.55; }
+    a {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 18px;
+      border-radius: 14px;
+      color: #020617;
+      background: linear-gradient(135deg, #38bdf8, #a78bfa, #f472b6);
+      text-decoration: none;
+      font-weight: 900;
+    }
+  </style>
+  <script>
+    window.location.replace('./app.html');
+  </script>
+</head>
+<body>
+  <main>
+    <div class="mark">UR</div>
+    <h1>Carregando UniRead</h1>
+    <p>Redirecionando para a versão modular do leitor universal.</p>
+    <a href="app.html">Abrir agora</a>
+  </main>
+</body>
+</html>
