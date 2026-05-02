@@ -1,4 +1,4 @@
-const CACHE_NAME = 'uniread-v4.2.0';
+const CACHE_NAME = 'uniread-v4.3.0';
 const APP_SHELL = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const APP_SHELL = [
   './src/ai-client.js',
   './src/ai-panel.js',
   './src/layout-controller.js',
+  './src/media-player.js',
   './icon-192.svg',
   './icon-512.svg'
 ];
