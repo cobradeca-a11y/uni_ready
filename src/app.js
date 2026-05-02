@@ -1,5 +1,7 @@
 import { $, escapeHtml, extOf, fileMeta, formatBytes } from './utils.js';
 import { renderFile } from './file-router.js';
+import { installAiPanel } from './ai-panel.js';
+import { applyLayout, runLayoutAction, installLayoutShortcuts } from './layout-controller.js';
 
 const state = {
   files: [],
@@ -104,6 +106,26 @@ function copyCurrent() {
     .catch(() => toast('Não foi possível copiar neste navegador.'));
 }
 
+function getAssistantContext() {
+  const file = state.files[state.activeIndex];
+  const visibleText = state.activeResult?.copyText || els.viewerBody?.innerText || '';
+  return {
+    activeFile: file ? { name: file.name, type: file.type, size: file.size, extension: extOf(file) } : null,
+    activeText: visibleText.slice(0, 24000),
+    files: state.files.map(item => ({ name: item.name, type: item.type, size: item.size, extension: extOf(item) })),
+    layoutMode: document.body.dataset.mode || 'reader'
+  };
+}
+
+function createAssistantButton() {
+  const button = document.createElement('button');
+  button.className = 'ghost-button ai-toggle';
+  button.type = 'button';
+  button.textContent = 'Assistente';
+  button.addEventListener('click', () => runLayoutAction({ type: 'open_ai_panel', payload: {} }));
+  document.querySelector('.top-actions')?.appendChild(button);
+}
+
 function registerEvents() {
   els.fileInput.addEventListener('change', event => addFiles(event.target.files));
 
@@ -172,6 +194,10 @@ function registerServiceWorker() {
   });
 }
 
+applyLayout();
+createAssistantButton();
+installAiPanel({ getContext: getAssistantContext, toast });
+installLayoutShortcuts();
 registerEvents();
 registerPwaFileHandlers();
 registerServiceWorker();
