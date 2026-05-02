@@ -1,0 +1,2175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#6c47ff"/>
+<meta name="description" content="UniRead — Leitor universal de arquivos offline"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="UniRead"/>
+<title>UniRead — Leitor Universal</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"/>
+
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface2: #1a1a27;
+  --border: #2a2a40;
+  --accent: #6c47ff;
+  --accent2: #ff47a3;
+  --accent3: #47ffd4;
+  --text: #e8e8f0;
+  --text2: #8888aa;
+  --text3: #5555777;
+  --success: #47ff8a;
+  --warn: #ffb347;
+  --radius: 16px;
+  --radius-sm: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Syne', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* === GRID BG === */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  top: -200px; left: 50%;
+  width: 800px; height: 800px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(108,71,255,0.12) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#app { position: relative; z-index: 1; min-height: 100dvh; display: flex; flex-direction: column; }
+
+/* === HEADER === */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10,10,15,0.85);
+  backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 0 20px rgba(108,71,255,0.4);
+}
+
+.logo-text {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #fff 30%, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn:hover { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { background: #7d5fff; border-color: #7d5fff; color: #fff; box-shadow: 0 0 20px rgba(108,71,255,0.4); }
+.btn-icon { padding: 8px; font-size: 16px; }
+
+/* === MAIN LAYOUT === */
+main { display: flex; flex: 1; overflow: hidden; }
+
+/* === SIDEBAR === */
+#sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text2);
+  margin-bottom: 10px;
+}
+
+#file-list { display: flex; flex-direction: column; gap: 4px; }
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+  font-size: 13px;
+  color: var(--text2);
+  word-break: break-all;
+}
+
+.file-item:hover { background: var(--surface2); color: var(--text); }
+.file-item.active { background: rgba(108,71,255,0.15); border-color: rgba(108,71,255,0.4); color: var(--accent); }
+.file-item .file-ext-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--surface2);
+  color: var(--text2);
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.file-item .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.file-remove { font-size: 12px; opacity: 0; transition: opacity 0.2s; flex-shrink: 0; }
+.file-item:hover .file-remove { opacity: 1; }
+
+/* === FORMAT TAGS === */
+.format-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.format-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  border: 1px solid;
+  font-family: 'Space Mono', monospace;
+}
+.tag-doc { color: #4db8ff; border-color: rgba(77,184,255,0.3); background: rgba(77,184,255,0.08); }
+.tag-img { color: #ff7eb3; border-color: rgba(255,126,179,0.3); background: rgba(255,126,179,0.08); }
+.tag-code { color: #a8ff78; border-color: rgba(168,255,120,0.3); background: rgba(168,255,120,0.08); }
+.tag-data { color: #ffd47e; border-color: rgba(255,212,126,0.3); background: rgba(255,212,126,0.08); }
+.tag-media { color: #c77dff; border-color: rgba(199,125,255,0.3); background: rgba(199,125,255,0.08); }
+.tag-archive { color: #ff9e7e; border-color: rgba(255,158,126,0.3); background: rgba(255,158,126,0.08); }
+
+/* === VIEWER === */
+#viewer-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* TOOLBAR */
+#viewer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+
+#file-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#current-filename {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#current-meta {
+  font-size: 11px;
+  color: var(--text2);
+  font-family: 'Space Mono', monospace;
+  white-space: nowrap;
+}
+
+/* === DROP ZONE === */
+#drop-zone {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 40px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+#drop-zone.drag-over {
+  background: rgba(108,71,255,0.08);
+}
+
+#drop-zone.drag-over .drop-ring {
+  border-color: var(--accent);
+  box-shadow: 0 0 40px rgba(108,71,255,0.3);
+}
+
+.drop-ring {
+  width: 160px; height: 160px;
+  border: 2px dashed var(--border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 56px;
+  transition: all 0.3s;
+  animation: pulse-ring 3s ease-in-out infinite;
+}
+
+@keyframes pulse-ring {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(108,71,255,0.2); }
+  50% { transform: scale(1.02); box-shadow: 0 0 0 20px rgba(108,71,255,0); }
+}
+
+.drop-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.drop-sub {
+  font-size: 14px;
+  color: var(--text2);
+  max-width: 400px;
+  line-height: 1.6;
+}
+
+.drop-formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  max-width: 560px;
+}
+
+/* === CONTENT VIEWER === */
+#content-area {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+  display: none;
+}
+
+/* TEXT */
+#content-area.view-text pre,
+#content-area.view-code pre {
+  padding: 24px;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 100%;
+}
+
+/* MARKDOWN */
+#content-area.view-md .md-body {
+  padding: 32px;
+  max-width: 800px;
+  margin: 0 auto;
+  line-height: 1.8;
+}
+.md-body h1,h2,h3,h4,h5,h6 { color: var(--text); margin: 1.5em 0 0.5em; font-weight: 700; }
+.md-body h1 { font-size: 2em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+.md-body h2 { font-size: 1.5em; }
+.md-body p { color: var(--text); margin: 0.8em 0; }
+.md-body code { font-family: 'Space Mono', monospace; background: var(--surface2); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; color: var(--accent3); }
+.md-body pre { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; overflow-x: auto; margin: 1em 0; }
+.md-body pre code { background: none; padding: 0; color: var(--text); }
+.md-body blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: var(--text2); margin: 1em 0; }
+.md-body a { color: var(--accent); text-decoration: none; }
+.md-body a:hover { text-decoration: underline; }
+.md-body ul, .md-body ol { padding-left: 24px; margin: 0.5em 0; }
+.md-body li { margin: 0.3em 0; }
+.md-body table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+.md-body th { background: var(--surface2); padding: 10px 14px; text-align: left; border: 1px solid var(--border); }
+.md-body td { padding: 8px 14px; border: 1px solid var(--border); }
+.md-body hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+.md-body img { max-width: 100%; border-radius: var(--radius-sm); }
+
+/* HTML */
+#html-frame {
+  width: 100%; height: 100%;
+  border: none;
+  background: #fff;
+}
+
+/* IMAGE */
+#content-area.view-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-conic-gradient(#1a1a27 0% 25%, #12121a 0% 50%) 0 0/20px 20px;
+}
+#content-area.view-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+/* AUDIO */
+#content-area.view-audio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 40px;
+}
+.audio-icon { font-size: 80px; animation: float 3s ease-in-out infinite; }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+audio, video { border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); max-width: 100%; }
+video { max-height: 70vh; }
+
+/* VIDEO */
+#content-area.view-video {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #000;
+}
+
+/* SPREADSHEET */
+#content-area.view-sheet {
+  overflow: auto;
+  padding: 0;
+}
+.sheet-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--surface); overflow-x: auto; flex-shrink: 0; }
+.sheet-tab { padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer; border-right: 1px solid var(--border); color: var(--text2); transition: all 0.15s; white-space: nowrap; }
+.sheet-tab.active { color: var(--accent); background: rgba(108,71,255,0.1); }
+.sheet-tab:hover:not(.active) { color: var(--text); background: var(--surface2); }
+.sheet-wrapper { overflow: auto; flex: 1; }
+.sheet-table { border-collapse: collapse; font-size: 13px; font-family: 'Space Mono', monospace; min-width: 100%; }
+.sheet-table th { background: var(--surface2); color: var(--text2); padding: 8px 14px; border: 1px solid var(--border); font-weight: 700; text-align: left; white-space: nowrap; position: sticky; top: 0; }
+.sheet-table td { padding: 6px 14px; border: 1px solid rgba(42,42,64,0.5); color: var(--text); white-space: nowrap; }
+.sheet-table tr:hover td { background: rgba(108,71,255,0.05); }
+.sheet-table tr:nth-child(even) td { background: rgba(26,26,39,0.4); }
+.row-num { color: var(--text2) !important; background: var(--surface2) !important; font-size: 10px; width: 40px; text-align: center; }
+
+/* DOCX */
+#content-area.view-docx .docx-body {
+  padding: 40px;
+  max-width: 860px;
+  margin: 0 auto;
+  line-height: 1.8;
+  font-size: 15px;
+}
+.docx-body table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+.docx-body td, .docx-body th { border: 1px solid var(--border); padding: 8px 12px; }
+.docx-body img { max-width: 100%; border-radius: 8px; }
+
+/* PDF */
+#content-area.view-pdf { padding: 0; }
+#pdf-frame { width: 100%; height: 100%; border: none; }
+
+/* SVG */
+#content-area.view-svg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+#content-area.view-svg svg { max-width: 100%; max-height: 80vh; }
+
+/* CSV */
+#content-area.view-csv { overflow: auto; }
+
+/* JSON */
+#content-area.view-json pre { padding: 24px; font-family: 'Space Mono', monospace; font-size: 13px; line-height: 1.7; }
+.json-key { color: #a8ff78; }
+.json-string { color: #ffd47e; }
+.json-number { color: #c77dff; }
+.json-bool { color: #ff7eb3; }
+.json-null { color: var(--text2); }
+
+/* BINARY / UNKNOWN */
+#content-area.view-unknown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px;
+  text-align: center;
+}
+
+/* EPUB */
+#content-area.view-epub .epub-body { padding: 32px; max-width: 800px; margin: 0 auto; line-height: 1.8; }
+
+/* SCROLL BARS */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* TOAST */
+#toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 20px;
+  border-radius: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: transform 0.3s;
+  z-index: 999;
+  white-space: nowrap;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+/* LOADING */
+.loading-spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: auto;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* SEARCH BAR */
+#search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+#search-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  outline: none;
+}
+#search-input:focus { border-color: var(--accent); }
+
+/* MOBILE */
+@media (max-width: 640px) {
+  #sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 200; transform: translateX(-100%); }
+  #sidebar.open { transform: translateX(0); box-shadow: 4px 0 30px rgba(0,0,0,0.5); }
+  .logo-text { display: none; }
+}
+
+/* INSTALL BANNER */
+#install-banner {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: linear-gradient(90deg, rgba(108,71,255,0.15), rgba(255,71,163,0.1));
+  border-bottom: 1px solid rgba(108,71,255,0.3);
+  font-size: 13px;
+}
+#install-banner.show { display: flex; }
+
+/* ZOOM CONTROLS */
+.zoom-group { display: flex; align-items: center; gap: 4px; }
+.zoom-val { font-size: 12px; font-family: 'Space Mono', monospace; color: var(--text2); min-width: 38px; text-align: center; }
+
+/* PROGRESS BAR */
+#progress-bar {
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  width: 0;
+  transition: width 0.3s;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 999;
+}
+
+/* Sheet container layout */
+#sheet-container { display: flex; flex-direction: column; height: 100%; }
+
+code.hljs { background: transparent; }
+
+/* === LIGHT THEME === */
+body.light {
+  --bg: #f5f5fa;
+  --surface: #ffffff;
+  --surface2: #eeeefc;
+  --border: #d0d0e8;
+  --text: #111122;
+  --text2: #555577;
+  --text3: #9999bb;
+}
+body.light::before { opacity: 0.15; }
+body.light::after { background: radial-gradient(circle, rgba(108,71,255,0.06) 0%, transparent 70%); }
+body.light header { background: rgba(245,245,250,0.9); }
+body.light .md-body code { background: #e8e8f8; color: #6030cc; }
+body.light .md-body pre { background: #1a1a2e; }
+body.light .sheet-table td { color: #111122; }
+body.light .docx-body { color: #111122; }
+
+/* === RECENT FILES === */
+.recent-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: var(--radius-sm);
+  cursor: pointer; font-size: 12px; color: var(--text2);
+  transition: all 0.15s; border: 1px solid transparent;
+}
+.recent-item:hover { background: var(--surface2); color: var(--text); }
+.recent-item .recent-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.recent-item .recent-date { font-size:10px; color:var(--text2); font-family:'Space Mono',monospace; flex-shrink:0; }
+
+/* === STATS BAR === */
+#stats-bar {
+  display: none;
+  font-size: 11px;
+  color: var(--text2);
+  font-family: 'Space Mono', monospace;
+  padding: 4px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* === MINIMAP / THUMBNAIL === */
+.file-thumb {
+  width: 28px; height: 28px; border-radius: 4px;
+  object-fit: cover; flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+/* === DIFF VIEWER === */
+.diff-add { background: rgba(71,255,138,0.1); color: #47ff8a; }
+.diff-del { background: rgba(255,71,71,0.1); color: #ff7171; }
+.diff-hunk { color: var(--accent); background: rgba(108,71,255,0.1); }
+
+/* === VCF/ICS VIEWER === */
+.card-viewer { padding: 24px; display: flex; flex-direction: column; gap: 16px; max-width: 600px; }
+.contact-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+}
+.contact-name { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+.contact-field { display: flex; gap: 12px; font-size: 13px; margin: 6px 0; color: var(--text2); }
+.contact-field strong { color: var(--text); min-width: 80px; }
+
+/* === PRINT === */
+@media print {
+  header, #sidebar, #viewer-toolbar, #search-wrap, #stats-bar, #install-banner { display: none !important; }
+  #content-area { display: block !important; }
+  body { background: white; color: black; }
+  pre { white-space: pre-wrap; }
+}
+
+/* === FILE DRAG HANDLE === */
+.drag-indicator {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(108,71,255,0.15);
+  border: 3px dashed var(--accent);
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--accent);
+  pointer-events: none;
+}
+.drag-indicator.show { display: flex; }
+</style>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<div id="app">
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">📖</div>
+      <span class="logo-text">UniRead</span>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-icon" id="sidebar-toggle" title="Abrir/fechar painel" aria-label="toggle sidebar">☰</button>
+      <label class="btn btn-primary" for="file-input" title="Abrir arquivo(s)">
+        <span>＋</span> Abrir
+      </label>
+      <button class="btn btn-icon" id="copy-btn" title="Copiar conteúdo" style="display:none">⎘</button>
+      <button class="btn btn-icon" id="print-btn" title="Imprimir / Exportar PDF" style="display:none">🖨</button>
+      <button class="btn btn-icon" id="download-btn" title="Baixar arquivo atual" style="display:none">↓</button>
+      <button class="btn btn-icon" id="theme-btn" title="Alternar tema">🌙</button>
+      <button class="btn btn-icon" id="fullscreen-btn" title="Tela cheia">⛶</button>
+    </div>
+  </header>
+
+  <!-- INSTALL BANNER -->
+  <div id="install-banner">
+    📲 <strong>Instalar UniRead</strong> no dispositivo para acesso offline completo.
+    <button class="btn btn-primary" id="install-btn" style="margin-left:auto">Instalar</button>
+    <button class="btn btn-icon" id="install-dismiss">✕</button>
+  </div>
+
+
+  <!-- STATS BAR -->
+  <div id="stats-bar">
+    <span id="stat-words"></span>
+    <span id="stat-lines"></span>
+    <span id="stat-chars"></span>
+    <span id="stat-encoding">UTF-8</span>
+  </div>
+
+  <!-- DRAG OVERLAY -->
+  <div class="drag-indicator" id="drag-indicator">
+    📂 Solte os arquivos aqui
+  </div>
+
+  <!-- MAIN -->
+  <main>
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Arquivos Abertos</div>
+        <div id="file-list">
+          <div style="color:var(--text2);font-size:12px;text-align:center;padding:16px 0">
+            Nenhum arquivo aberto
+          </div>
+        </div>
+      </div>
+
+
+      <div class="sidebar-section" id="recent-section" style="display:none">
+        <div class="sidebar-title">Arquivos Recentes</div>
+        <div id="recent-list"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-title">Formatos Suportados</div>
+        <div class="format-grid">
+          <span class="format-tag tag-doc">TXT</span>
+          <span class="format-tag tag-doc">MD</span>
+          <span class="format-tag tag-doc">PDF</span>
+          <span class="format-tag tag-doc">EPUB</span>
+          <span class="format-tag tag-doc">DOC</span>
+          <span class="format-tag tag-doc">DOCX</span>
+          <span class="format-tag tag-doc">ODT</span>
+          <span class="format-tag tag-doc">RTF</span>
+          <span class="format-tag tag-doc">HTML</span>
+          <span class="format-tag tag-doc">HTM</span>
+          <span class="format-tag tag-data">XLS</span>
+          <span class="format-tag tag-data">XLSX</span>
+          <span class="format-tag tag-data">ODS</span>
+          <span class="format-tag tag-data">CSV</span>
+          <span class="format-tag tag-data">TSV</span>
+          <span class="format-tag tag-data">JSON</span>
+          <span class="format-tag tag-data">YAML</span>
+          <span class="format-tag tag-data">TOML</span>
+          <span class="format-tag tag-data">XML</span>
+          <span class="format-tag tag-data">NDJSON</span>
+          <span class="format-tag tag-data">GEOJSON</span>
+          <span class="format-tag tag-code">JS</span>
+          <span class="format-tag tag-code">TS</span>
+          <span class="format-tag tag-code">PY</span>
+          <span class="format-tag tag-code">JAVA</span>
+          <span class="format-tag tag-code">C</span>
+          <span class="format-tag tag-code">CPP</span>
+          <span class="format-tag tag-code">CS</span>
+          <span class="format-tag tag-code">GO</span>
+          <span class="format-tag tag-code">RS</span>
+          <span class="format-tag tag-code">PHP</span>
+          <span class="format-tag tag-code">RB</span>
+          <span class="format-tag tag-code">SWIFT</span>
+          <span class="format-tag tag-code">KT</span>
+          <span class="format-tag tag-code">CSS</span>
+          <span class="format-tag tag-code">SQL</span>
+          <span class="format-tag tag-code">SH</span>
+          <span class="format-tag tag-code">BASH</span>
+          <span class="format-tag tag-code">R</span>
+          <span class="format-tag tag-code">DART</span>
+          <span class="format-tag tag-code">SCALA</span>
+          <span class="format-tag tag-code">LUA</span>
+          <span class="format-tag tag-code">DIFF</span>
+          <span class="format-tag tag-img">JPG</span>
+          <span class="format-tag tag-img">PNG</span>
+          <span class="format-tag tag-img">GIF</span>
+          <span class="format-tag tag-img">WEBP</span>
+          <span class="format-tag tag-img">SVG</span>
+          <span class="format-tag tag-img">BMP</span>
+          <span class="format-tag tag-img">TIFF</span>
+          <span class="format-tag tag-img">ICO</span>
+          <span class="format-tag tag-img">AVIF</span>
+          <span class="format-tag tag-img">HEIC</span>
+          <span class="format-tag tag-media">MP3</span>
+          <span class="format-tag tag-media">WAV</span>
+          <span class="format-tag tag-media">OGG</span>
+          <span class="format-tag tag-media">FLAC</span>
+          <span class="format-tag tag-media">AAC</span>
+          <span class="format-tag tag-media">M4A</span>
+          <span class="format-tag tag-media">OPUS</span>
+          <span class="format-tag tag-media">MP4</span>
+          <span class="format-tag tag-media">WEBM</span>
+          <span class="format-tag tag-media">MKV</span>
+          <span class="format-tag tag-media">AVI</span>
+          <span class="format-tag tag-media">MOV</span>
+          <span class="format-tag tag-media">OGV</span>
+          <span class="format-tag tag-archive">ZIP</span>
+          <span class="format-tag tag-archive">RAR</span>
+          <span class="format-tag tag-archive">7Z</span>
+          <span class="format-tag tag-archive">TAR</span>
+          <span class="format-tag tag-archive">GZ</span>
+          <span class="format-tag tag-doc">PPT</span>
+          <span class="format-tag tag-doc">PPTX</span>
+          <span class="format-tag tag-doc">ODP</span>
+          <span class="format-tag tag-doc">LOG</span>
+          <span class="format-tag tag-doc">INI</span>
+          <span class="format-tag tag-doc">ENV</span>
+          <span class="format-tag tag-doc">TEX</span>
+          <span class="format-tag tag-doc">VCF</span>
+          <span class="format-tag tag-doc">ICS</span>
+          <span class="format-tag tag-doc">NFO</span>
+          <span class="format-tag tag-data">JSONL</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section" style="font-size:11px;color:var(--text2);line-height:1.6">
+        <div class="sidebar-title">Atalhos</div>
+        <div><kbd style="background:var(--surface2);padding:2px 5px;border-radius:3px;font-family:monospace">Ctrl+O</kbd> Abrir arquivo</div>
+        <div style="margin-top:4px"><kbd style="background:var(--surface2);padding:2px 5px;border-radius:3px;font-family:monospace">Ctrl+F</kbd> Buscar no texto</div>
+        <div style="margin-top:4px"><kbd style="background:var(--surface2);padding:2px 5px;border-radius:3px;font-family:monospace">Ctrl+W</kbd> Fechar arquivo</div>
+        <div style="margin-top:4px"><kbd style="background:var(--surface2);padding:2px 5px;border-radius:3px;font-family:monospace">Ctrl+P</kbd> Imprimir</div>
+        <div style="margin-top:4px"><kbd style="background:var(--surface2);padding:2px 5px;border-radius:3px;font-family:monospace">← →</kbd> Navegar arquivos</div>
+      </div>
+    </aside>
+
+    <!-- VIEWER AREA -->
+    <div id="viewer-area">
+
+      <!-- TOOLBAR -->
+      <div id="viewer-toolbar" style="display:none">
+        <div id="file-info">
+          <span id="current-filename">—</span>
+          <span id="current-meta"></span>
+        </div>
+        <div class="zoom-group" id="zoom-controls" style="display:none">
+          <button class="btn btn-icon" id="zoom-out">−</button>
+          <span class="zoom-val" id="zoom-val">100%</span>
+          <button class="btn btn-icon" id="zoom-in">＋</button>
+          <button class="btn" id="zoom-reset">Reset</button>
+        </div>
+        <button class="btn btn-icon" id="prev-file" title="Arquivo anterior">←</button>
+        <button class="btn btn-icon" id="next-file" title="Próximo arquivo">→</button>
+      </div>
+
+      <!-- SEARCH -->
+      <div id="search-wrap" style="display:none">
+        <span style="color:var(--text2);font-size:13px">🔍</span>
+        <input id="search-input" type="text" placeholder="Buscar no arquivo..."/>
+        <span id="search-count" style="font-size:12px;color:var(--text2);font-family:monospace"></span>
+        <button class="btn btn-icon" id="search-close">✕</button>
+      </div>
+
+      <!-- DROP ZONE -->
+      <div id="drop-zone">
+        <div class="drop-ring">📂</div>
+        <div>
+          <div class="drop-title">Solte qualquer arquivo aqui</div>
+          <div class="drop-sub">Ou clique em <strong>Abrir</strong> para selecionar. Suporte a 70+ formatos: documentos, imagens, código, planilhas, slides, áudio, vídeo e mais.</div>
+        </div>
+        <label class="btn btn-primary" for="file-input" style="font-size:15px;padding:12px 28px">
+          Escolher Arquivo(s)
+        </label>
+        <div class="drop-formats">
+          <span class="format-tag tag-doc">PDF · DOCX · MD · TXT</span>
+          <span class="format-tag tag-img">PNG · JPG · SVG · GIF</span>
+          <span class="format-tag tag-data">XLSX · CSV · JSON · XML</span>
+          <span class="format-tag tag-code">JS · PY · HTML · CSS</span>
+          <span class="format-tag tag-media">MP4 · MP3 · WEBM · OGG</span>
+          <span class="format-tag tag-archive">ZIP · TAR · 7Z</span>
+          <span class="format-tag tag-doc">EPUB · ODT · PPTX</span>
+        </div>
+      </div>
+
+      <!-- CONTENT -->
+      <div id="content-area"></div>
+
+    </div>
+  </main>
+</div>
+
+<!-- HIDDEN INPUTS -->
+<input type="file" id="file-input" multiple accept="*/*" style="display:none"/>
+<div id="toast"></div>
+
+<script>
+// ===== STATE =====
+const state = {
+  files: [],
+  currentIndex: -1,
+  zoom: 1,
+  searchOpen: false,
+  searchMatches: [],
+  searchIndex: 0
+};
+
+// ===== ELEMENTS =====
+const $ = id => document.getElementById(id);
+const fileInput = $('file-input');
+const dropZone = $('drop-zone');
+const contentArea = $('content-area');
+const fileList = $('file-list');
+const viewerToolbar = $('viewer-toolbar');
+const searchWrap = $('search-wrap');
+const currentFilename = $('current-filename');
+const currentMeta = $('current-meta');
+const toast = $('toast');
+const progressBar = $('progress-bar');
+const sidebar = $('sidebar');
+const zoomControls = $('zoom-controls');
+const zoomVal = $('zoom-val');
+
+// ===== UTILS =====
+function showToast(msg, duration=2500) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove('show'), duration);
+}
+
+function setProgress(pct) {
+  progressBar.style.width = pct + '%';
+  if (pct >= 100) setTimeout(() => progressBar.style.width = '0', 400);
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+function getExt(name) {
+  return (name.split('.').pop() || '').toLowerCase();
+}
+
+function getBadgeColor(ext) {
+  const cats = {
+    doc: ['txt','md','pdf','doc','docx','odt','rtf','html','htm','epub','ppt','pptx','odp','log','ini','env','tex','nfo','vcf','ics','tex','readme'],
+    img: ['jpg','jpeg','png','gif','bmp','svg','webp','ico','tiff','tif','avif','heic','heif','raw','cr2','nef','psd','ai','eps'],
+    code: ['js','ts','jsx','tsx','css','scss','less','py','java','c','cpp','h','hpp','cs','go','rs','php','rb','swift','kt','sh','bash','zsh','fish','bat','ps1','sql','r','dart','scala','lua','ex','exs','erl','hs','ml','clj','vim','diff','patch','makefile','dockerfile','toml','gitignore','htaccess'],
+    data: ['json','yaml','yml','xml','csv','tsv','ndjson','jsonl','geojson','xls','xlsx','ods','db','sqlite','parquet'],
+    media: ['mp3','wav','ogg','flac','aac','m4a','opus','aiff','wma','mp4','webm','mkv','avi','mov','wmv','flv','m4v','3gp','ogv'],
+    archive: ['zip','rar','7z','tar','gz','bz2','xz','tgz']
+  };
+  for (const [cat, exts] of Object.entries(cats)) if (exts.includes(ext)) return 'tag-' + cat;
+  return 'tag-doc';
+}
+
+// ===== FILE DETECTION =====
+function detectType(file) {
+  const ext = getExt(file.name);
+  const mt = file.type || '';
+  
+  if (['md','markdown','mkd'].includes(ext)) return 'md';
+  if (['html','htm','xhtml'].includes(ext)) return 'html';
+  if (ext === 'pdf' || mt === 'application/pdf') return 'pdf';
+  if (['doc','docx'].includes(ext) || mt.includes('msword') || mt.includes('wordprocessingml')) return 'docx';
+  if (['xls','xlsx','ods'].includes(ext) || mt.includes('spreadsheet') || mt.includes('ms-excel')) return 'sheet';
+  if (['ppt','pptx','odp'].includes(ext) || mt.includes('presentation') || mt.includes('powerpoint')) return 'sheet-ppt';
+  if (['jpg','jpeg','png','gif','bmp','webp','avif','heic','heif'].includes(ext) || mt.startsWith('image/')) return 'image';
+  if (ext === 'svg') return 'svg';
+  if (['mp3','wav','ogg','flac','aac','m4a','opus','aiff','wma'].includes(ext) || mt.startsWith('audio/')) return 'audio';
+  if (['mp4','webm','mkv','avi','mov','wmv','flv','m4v','3gp','ogv'].includes(ext) || mt.startsWith('video/')) return 'video';
+  if (['json','geojson','jsonl','ndjson'].includes(ext)) return 'json';
+  if (['csv','tsv'].includes(ext)) return 'csv';
+  if (ext === 'xml') return 'xml';
+  if (['yaml','yml'].includes(ext)) return 'yaml';
+  if (['toml','ini','cfg','env','editorconfig'].includes(ext)) return 'toml';
+  if (ext === 'epub') return 'epub';
+  if (ext === 'rtf') return 'rtf';
+  if (['zip','rar','7z','tar','gz','bz2','tgz'].includes(ext)) return 'archive';
+  
+  // Code files
+  const codeExts = ['js','ts','jsx','tsx','css','scss','less','py','java','c','cpp','h','hpp','cs','go','rs','php','rb','swift','kt','sh','bash','zsh','fish','bat','ps1','sql','r','dart','scala','lua','ex','exs','erl','hs','ml','clj','vim','diff','patch','gitignore','htaccess','conf','config','dockerfile','makefile'];
+  if (codeExts.includes(ext)) return 'code';
+
+  // Plain text fallback
+  if (mt.startsWith('text/') || ['txt','log','nfo','readme','vcf','ics','tex','bib','asc','me'].includes(ext)) return 'text';
+  
+  return 'unknown';
+}
+
+// ===== FILE LIST RENDER =====
+function renderFileList() {
+  if (!state.files.length) {
+    fileList.innerHTML = '<div style="color:var(--text2);font-size:12px;text-align:center;padding:16px 0">Nenhum arquivo aberto</div>';
+    return;
+  }
+  fileList.innerHTML = '';
+  state.files.forEach((f, i) => {
+    const ext = getExt(f.file.name);
+    const badgeClass = getBadgeColor(ext);
+    const item = document.createElement('div');
+    item.className = 'file-item' + (i === state.currentIndex ? ' active' : '');
+    item.innerHTML = `
+      <span class="file-ext-badge">${ext || '?'}</span>
+      <span class="file-name">${f.file.name}</span>
+      <span class="file-remove" title="Remover" data-idx="${i}">✕</span>
+    `;
+    item.addEventListener('click', e => {
+      if (e.target.classList.contains('file-remove')) {
+        e.stopPropagation();
+        removeFile(parseInt(e.target.dataset.idx));
+        return;
+      }
+      openFile(i);
+    });
+    fileList.appendChild(item);
+  });
+}
+
+function removeFile(idx) {
+  state.files.splice(idx, 1);
+  if (!state.files.length) {
+    state.currentIndex = -1;
+    showEmpty();
+  } else {
+    state.currentIndex = Math.min(state.currentIndex, state.files.length - 1);
+    openFile(state.currentIndex);
+  }
+  renderFileList();
+}
+
+function showEmpty() {
+  dropZone.style.display = 'flex';
+  contentArea.style.display = 'none';
+  viewerToolbar.style.display = 'none';
+  searchWrap.style.display = 'none';
+  $('copy-btn').style.display = 'none';
+  $('download-btn').style.display = 'none';
+  zoomControls.style.display = 'none';
+}
+
+// ===== FILE OPENING =====
+function addFiles(files) {
+  let added = 0;
+  for (const f of files) {
+    if (state.files.some(x => x.file.name === f.name && x.file.size === f.size)) continue;
+    state.files.push({ file: f });
+    added++;
+  }
+  renderFileList();
+  if (added > 0) {
+    const idx = state.files.length - 1;
+    openFile(idx);
+    showToast(`✓ ${added} arquivo${added>1?'s':''} carregado${added>1?'s':''}`);
+  }
+}
+
+function openFile(idx) {
+  state.currentIndex = idx;
+  renderFileList();
+  const f = state.files[idx];
+  if (!f) return;
+  
+  setProgress(10);
+  dropZone.style.display = 'none';
+  contentArea.style.display = 'flex';
+  contentArea.className = '';
+  contentArea.innerHTML = '<div class="loading-spinner" style="align-self:center"></div>';
+  viewerToolbar.style.display = 'flex';
+  
+  currentFilename.textContent = f.file.name;
+  currentMeta.textContent = formatSize(f.file.size);
+  
+  $('download-btn').style.display = '';
+  
+  const type = detectType(f.file);
+  setProgress(30);
+  
+  const handlers = {
+    md: handleMarkdown,
+    html: handleHTML,
+    pdf: handlePDF,
+    docx: handleDOCX,
+    sheet: handleSheet,
+    'sheet-ppt': handlePPT,
+    image: handleImage,
+    svg: handleSVG,
+    audio: handleAudio,
+    video: handleVideo,
+    json: handleJSON,
+    csv: handleCSV,
+    xml: handleXML,
+    yaml: handleText,
+    toml: handleText,
+    text: handleText,
+    code: handleCode,
+    epub: handleEPUB,
+    rtf: handleRTF,
+    archive: handleArchive,
+    unknown: handleUnknown
+  };
+  
+  (handlers[type] || handleUnknown)(f.file, type);
+}
+
+// ===== READERS =====
+function readAsText(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsText(file, 'UTF-8');
+  });
+}
+
+function readAsDataURL(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function readAsArrayBuffer(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsArrayBuffer(file);
+  });
+}
+
+// ===== HANDLERS =====
+async function handleText(file) {
+  const text = await readAsText(file);
+  contentArea.className = 'view-text';
+  contentArea.innerHTML = `<pre>${escapeHtml(text)}</pre>`;
+  enableSearch(text);
+  enableCopy(text);
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+async function handleCode(file, type) {
+  const text = await readAsText(file);
+  contentArea.className = 'view-code';
+  const ext = getExt(file.name);
+  
+  let highlighted;
+  try {
+    highlighted = hljs.highlight(text, { language: ext }).value;
+  } catch {
+    try { highlighted = hljs.highlightAuto(text).value; }
+    catch { highlighted = escapeHtml(text); }
+  }
+  
+  contentArea.innerHTML = `<pre><code class="hljs">${highlighted}</code></pre>`;
+  enableSearch(text);
+  enableCopy(text);
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+async function handleMarkdown(file) {
+  const text = await readAsText(file);
+  contentArea.className = 'view-md';
+  
+  marked.setOptions({ breaks: true, gfm: true });
+  const html = marked.parse(text);
+  contentArea.innerHTML = `<div class="md-body">${html}</div>`;
+  
+  // Highlight code blocks
+  contentArea.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+  
+  enableSearch(text);
+  enableCopy(text);
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+async function handleHTML(file) {
+  const dataURL = await readAsDataURL(file);
+  contentArea.className = 'view-html';
+  contentArea.style.display = 'flex';
+  contentArea.innerHTML = `<iframe id="html-frame" src="${dataURL}" sandbox="allow-same-origin allow-scripts"></iframe>`;
+  zoomControls.style.display = 'none';
+  $('copy-btn').style.display = 'none';
+  setProgress(100);
+}
+
+async function handlePDF(file) {
+  const dataURL = await readAsDataURL(file);
+  contentArea.className = 'view-pdf';
+  contentArea.style.display = 'flex';
+  contentArea.style.flexDirection = 'column';
+  contentArea.innerHTML = `
+    <object id="pdf-frame" data="${dataURL}#toolbar=1&navpanes=0" type="application/pdf" style="flex:1;width:100%;border:none">
+      <iframe src="${dataURL}" style="flex:1;width:100%;height:100%;border:none">
+        <p>Seu navegador não suporta visualização de PDF. <a href="${dataURL}" download="${file.name}">Clique para baixar.</a></p>
+      </iframe>
+    </object>`;
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+async function handleDOCX(file) {
+  try {
+    const ab = await readAsArrayBuffer(file);
+    const result = await mammoth.convertToHtml({ arrayBuffer: ab });
+    contentArea.className = 'view-docx';
+    contentArea.innerHTML = `<div class="docx-body md-body">${result.value}</div>`;
+    const plainText = contentArea.textContent;
+    enableSearch(plainText);
+    enableCopy(plainText);
+  } catch(e) {
+    handleUnknown(file, 'docx', `Erro ao processar DOCX: ${e.message}`);
+  }
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+async function handleSheet(file) {
+  try {
+    const ab = await readAsArrayBuffer(file);
+    const wb = XLSX.read(ab, { type: 'array' });
+    
+    contentArea.className = 'view-sheet';
+    const container = document.createElement('div');
+    container.id = 'sheet-container';
+    
+    const tabs = document.createElement('div');
+    tabs.className = 'sheet-tabs';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sheet-wrapper';
+    
+    container.appendChild(tabs);
+    container.appendChild(wrapper);
+    contentArea.innerHTML = '';
+    contentArea.appendChild(container);
+    
+    wb.SheetNames.forEach((name, si) => {
+      const tab = document.createElement('div');
+      tab.className = 'sheet-tab' + (si === 0 ? ' active' : '');
+      tab.textContent = name;
+      tab.addEventListener('click', () => {
+        tabs.querySelectorAll('.sheet-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        renderSheet(wb, name, wrapper);
+      });
+      tabs.appendChild(tab);
+    });
+    
+    renderSheet(wb, wb.SheetNames[0], wrapper);
+    enableCopy(XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]));
+  } catch(e) {
+    handleUnknown(file, 'sheet', `Erro ao processar planilha: ${e.message}`);
+  }
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+function renderSheet(wb, sheetName, wrapper) {
+  const ws = wb.Sheets[sheetName];
+  const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  if (!data.length) { wrapper.innerHTML = '<div style="padding:24px;color:var(--text2)">Planilha vazia</div>'; return; }
+  
+  const maxCols = Math.max(...data.map(r => r.length));
+  let html = '<table class="sheet-table"><thead><tr><th class="row-num">#</th>';
+  
+  // Header row
+  const headers = data[0];
+  for (let c = 0; c < maxCols; c++) {
+    html += `<th>${escapeHtml(String(headers[c] ?? ''))}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+  
+  for (let r = 1; r < Math.min(data.length, 5000); r++) {
+    html += `<tr><td class="row-num">${r}</td>`;
+    for (let c = 0; c < maxCols; c++) {
+      html += `<td>${escapeHtml(String(data[r][c] ?? ''))}</td>`;
+    }
+    html += '</tr>';
+  }
+  
+  if (data.length > 5001) html += `<tr><td colspan="${maxCols+1}" style="text-align:center;padding:12px;color:var(--text2)">... ${data.length - 5001} linhas adicionais não exibidas</td></tr>`;
+  
+  html += '</tbody></table>';
+  wrapper.innerHTML = html;
+}
+
+async function handlePPT(file) {
+  contentArea.className = 'view-unknown';
+  contentArea.innerHTML = `
+    <div style="font-size:64px">📊</div>
+    <div style="font-size:18px;font-weight:700">Apresentação PowerPoint</div>
+    <div style="color:var(--text2);font-size:13px;max-width:360px">A visualização de PPT/PPTX diretamente no navegador requer plugins externos. Você pode baixar o arquivo e abrir no LibreOffice ou Microsoft Office.</div>
+    <button class="btn btn-primary" id="dl-direct">↓ Baixar Arquivo</button>`;
+  $('dl-direct').onclick = () => downloadCurrent();
+  setProgress(100);
+}
+
+async function handleImage(file) {
+  const dataURL = await readAsDataURL(file);
+  contentArea.className = 'view-image';
+  contentArea.style.display = 'flex';
+  
+  const img = new Image();
+  img.src = dataURL;
+  img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;transition:transform 0.2s';
+  img.onload = () => {
+    currentMeta.textContent = `${img.naturalWidth}×${img.naturalHeight}px · ${formatSize(file.size)}`;
+    setProgress(100);
+  };
+  
+  contentArea.innerHTML = '';
+  contentArea.appendChild(img);
+  
+  setupImageZoom(img);
+  enableCopy(null, () => { navigator.clipboard.write && showToast('Imagem copiada!'); });
+  zoomControls.style.display = 'flex';
+}
+
+function setupImageZoom(img) {
+  state.zoom = 1;
+  zoomVal.textContent = '100%';
+  
+  $('zoom-in').onclick = () => { state.zoom = Math.min(state.zoom * 1.25, 8); applyZoom(img); };
+  $('zoom-out').onclick = () => { state.zoom = Math.max(state.zoom / 1.25, 0.1); applyZoom(img); };
+  $('zoom-reset').onclick = () => { state.zoom = 1; applyZoom(img); };
+  
+  img.addEventListener('wheel', e => {
+    e.preventDefault();
+    state.zoom = e.deltaY < 0 ? Math.min(state.zoom * 1.1, 8) : Math.max(state.zoom / 1.1, 0.1);
+    applyZoom(img);
+  }, { passive: false });
+}
+
+function applyZoom(img) {
+  img.style.transform = `scale(${state.zoom})`;
+  zoomVal.textContent = Math.round(state.zoom * 100) + '%';
+}
+
+async function handleSVG(file) {
+  const text = await readAsText(file);
+  contentArea.className = 'view-svg';
+  contentArea.style.display = 'flex';
+  contentArea.innerHTML = text;
+  const svg = contentArea.querySelector('svg');
+  if (svg) {
+    svg.style.cssText = 'max-width:100%;max-height:80vh';
+  }
+  enableSearch(text);
+  enableCopy(text);
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+async function handleAudio(file) {
+  const dataURL = await readAsDataURL(file);
+  contentArea.className = 'view-audio';
+  contentArea.style.display = 'flex';
+  contentArea.innerHTML = `
+    <div class="audio-icon">🎵</div>
+    <div style="font-size:18px;font-weight:700;text-align:center">${escapeHtml(file.name)}</div>
+    <div style="color:var(--text2);font-size:13px">${formatSize(file.size)} · ${getExt(file.name).toUpperCase()}</div>
+    <audio controls autoplay style="width:min(100%,500px)">
+      <source src="${dataURL}" type="${file.type || 'audio/mpeg'}">
+      Seu navegador não suporta áudio.
+    </audio>`;
+  zoomControls.style.display = 'none';
+  $('copy-btn').style.display = 'none';
+  setProgress(100);
+}
+
+async function handleVideo(file) {
+  const dataURL = await readAsDataURL(file);
+  contentArea.className = 'view-video';
+  contentArea.style.display = 'flex';
+  contentArea.innerHTML = `
+    <video controls autoplay style="max-width:100%;max-height:calc(100dvh - 120px);border-radius:var(--radius)">
+      <source src="${dataURL}" type="${file.type || 'video/mp4'}">
+      Seu navegador não suporta vídeo.
+    </video>`;
+  zoomControls.style.display = 'none';
+  $('copy-btn').style.display = 'none';
+  setProgress(100);
+}
+
+async function handleJSON(file) {
+  const text = await readAsText(file);
+  let formatted = text;
+  let parsed = null;
+  
+  try {
+    // Handle NDJSON / JSONL
+    if (getExt(file.name) === 'ndjson' || getExt(file.name) === 'jsonl') {
+      const lines = text.trim().split('\n').map(l => JSON.parse(l.trim()));
+      parsed = lines;
+    } else {
+      parsed = JSON.parse(text);
+    }
+    formatted = JSON.stringify(parsed, null, 2);
+  } catch(e) {
+    formatted = text;
+  }
+  
+  contentArea.className = 'view-json';
+  const highlighted = hljs.highlight(formatted, { language: 'json' }).value;
+  contentArea.innerHTML = `<pre><code class="hljs">${highlighted}</code></pre>`;
+  enableSearch(formatted);
+  enableCopy(formatted);
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+async function handleCSV(file) {
+  const text = await readAsText(file);
+  const sep = getExt(file.name) === 'tsv' ? '\t' : detectSep(text);
+  const rows = parseCSV(text, sep);
+  
+  contentArea.className = 'view-sheet';
+  const container = document.createElement('div');
+  container.id = 'sheet-container';
+  
+  const wrapper = document.createElement('div');
+  wrapper.className = 'sheet-wrapper';
+  wrapper.style.flex = '1';
+  container.appendChild(wrapper);
+  contentArea.innerHTML = '';
+  contentArea.appendChild(container);
+  
+  if (!rows.length) { wrapper.innerHTML = '<div style="padding:24px">Arquivo vazio</div>'; return; }
+  
+  let html = `<table class="sheet-table"><thead><tr><th class="row-num">#</th>`;
+  rows[0].forEach(h => html += `<th>${escapeHtml(String(h))}</th>`);
+  html += `</tr></thead><tbody>`;
+  
+  for (let r = 1; r < Math.min(rows.length, 5000); r++) {
+    html += `<tr><td class="row-num">${r}</td>`;
+    rows[r].forEach(c => html += `<td>${escapeHtml(String(c))}</td>`);
+    html += `</tr>`;
+  }
+  html += `</tbody></table>`;
+  wrapper.innerHTML = html;
+  
+  currentMeta.textContent = `${rows.length} linhas · ${rows[0].length} colunas · ${formatSize(file.size)}`;
+  enableSearch(text);
+  enableCopy(text);
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+function detectSep(text) {
+  const line = text.split('\n')[0] || '';
+  const counts = { ',': (line.match(/,/g)||[]).length, ';': (line.match(/;/g)||[]).length, '\t': (line.match(/\t/g)||[]).length, '|': (line.match(/\|/g)||[]).length };
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
+}
+
+function parseCSV(text, sep=',') {
+  const rows = [];
+  const lines = text.split('\n');
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cells = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === sep && !inQ) { cells.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    cells.push(cur);
+    rows.push(cells);
+  }
+  return rows;
+}
+
+async function handleXML(file) {
+  const text = await readAsText(file);
+  contentArea.className = 'view-code';
+  let highlighted;
+  try { highlighted = hljs.highlight(text, { language: 'xml' }).value; }
+  catch { highlighted = escapeHtml(text); }
+  contentArea.innerHTML = `<pre><code class="hljs">${highlighted}</code></pre>`;
+  enableSearch(text);
+  enableCopy(text);
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+async function handleEPUB(file) {
+  // EPUB is a ZIP with HTML files inside
+  try {
+    const ab = await readAsArrayBuffer(file);
+    const zip = await JSZip_or_fallback(ab);
+    if (zip) {
+      contentArea.className = 'view-epub';
+      const htmlFiles = Object.keys(zip.files).filter(f => f.endsWith('.html') || f.endsWith('.xhtml') || f.endsWith('.htm'));
+      if (htmlFiles.length) {
+        let allText = '';
+        for (const f of htmlFiles.slice(0, 20)) {
+          const content = await zip.files[f].async('text');
+          const div = document.createElement('div');
+          div.innerHTML = content;
+          allText += div.textContent + '\n\n';
+        }
+        contentArea.innerHTML = `<div class="epub-body md-body"><pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(allText)}</pre></div>`;
+        enableSearch(allText);
+        enableCopy(allText);
+        setProgress(100);
+        return;
+      }
+    }
+  } catch {}
+  
+  // Fallback
+  contentArea.className = 'view-unknown';
+  contentArea.innerHTML = `
+    <div style="font-size:64px">📚</div>
+    <div style="font-size:18px;font-weight:700">Arquivo EPUB</div>
+    <div style="color:var(--text2);font-size:13px;max-width:360px">Para melhor experiência com EPUB, baixe e use um leitor dedicado como Calibre ou Adobe Digital Editions.</div>
+    <button class="btn btn-primary" onclick="downloadCurrent()">↓ Baixar</button>`;
+  setProgress(100);
+}
+
+async function JSZip_or_fallback(ab) {
+  // Try to use JSZip if available (loaded dynamically)
+  if (typeof JSZip === 'undefined') {
+    try {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    } catch { return null; }
+  }
+  return await new JSZip().loadAsync(ab);
+}
+
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+async function handleRTF(file) {
+  const text = await readAsText(file);
+  // Strip RTF control codes
+  const cleaned = text
+    .replace(/\{\\[^}]*\}/g, '')
+    .replace(/\\[a-z]+\d*\s?/g, '')
+    .replace(/[{}]/g, '')
+    .replace(/\\\n/g, '\n')
+    .replace(/\\par\s?/g, '\n')
+    .trim();
+  contentArea.className = 'view-text';
+  contentArea.innerHTML = `<pre>${escapeHtml(cleaned)}</pre>`;
+  enableSearch(cleaned);
+  enableCopy(cleaned);
+  setProgress(100);
+}
+
+async function handleArchive(file) {
+  contentArea.className = 'view-unknown';
+  
+  const ext = getExt(file.name);
+  const icons = { zip: '📦', rar: '📦', '7z': '🗜️', tar: '📦', gz: '🗜️' };
+  
+  // Try to list ZIP contents
+  if (ext === 'zip') {
+    try {
+      const ab = await readAsArrayBuffer(file);
+      const zip = await JSZip_or_fallback(ab);
+      if (zip) {
+        const entries = Object.keys(zip.files).sort();
+        const listHtml = entries.map(e => {
+          const isDir = zip.files[e].dir;
+          return `<div style="padding:4px 0;font-family:'Space Mono',monospace;font-size:12px;color:${isDir?'var(--accent3)':'var(--text)'}">
+            ${isDir ? '📁' : '📄'} ${escapeHtml(e)} ${!isDir ? `<span style="color:var(--text2)">(${formatSize(zip.files[e]._data?.uncompressedSize||0)})</span>` : ''}
+          </div>`;
+        }).join('');
+        
+        contentArea.innerHTML = `
+          <div style="padding:32px;max-width:700px;width:100%">
+            <div style="font-size:48px;margin-bottom:16px">📦</div>
+            <div style="font-size:20px;font-weight:700;margin-bottom:4px">${escapeHtml(file.name)}</div>
+            <div style="color:var(--text2);margin-bottom:20px">${entries.length} itens · ${formatSize(file.size)}</div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;max-height:50vh;overflow-y:auto">
+              ${listHtml}
+            </div>
+            <button class="btn btn-primary" style="margin-top:16px" onclick="downloadCurrent()">↓ Baixar ZIP</button>
+          </div>`;
+        setProgress(100);
+        return;
+      }
+    } catch {}
+  }
+  
+  contentArea.innerHTML = `
+    <div style="font-size:64px">${icons[ext] || '📦'}</div>
+    <div style="font-size:20px;font-weight:700">${escapeHtml(file.name)}</div>
+    <div style="color:var(--text2);font-size:13px">Arquivo comprimido ${ext.toUpperCase()} · ${formatSize(file.size)}</div>
+    <button class="btn btn-primary" onclick="downloadCurrent()">↓ Baixar Arquivo</button>`;
+  setProgress(100);
+}
+
+function handleUnknown(file, type, msg) {
+  const ext = getExt(file.name);
+  contentArea.className = 'view-unknown';
+  contentArea.style.display = 'flex';
+  contentArea.innerHTML = `
+    <div style="font-size:64px">❓</div>
+    <div style="font-size:20px;font-weight:700">${escapeHtml(file.name)}</div>
+    <div style="color:var(--text2);font-size:13px">${msg || `Formato .${ext} não possui visualizador nativo`}</div>
+    <div style="color:var(--text2);font-size:13px">${formatSize(file.size)}</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary" onclick="downloadCurrent()">↓ Baixar</button>
+      <button class="btn" onclick="tryAsText()">Tentar como texto</button>
+    </div>`;
+  zoomControls.style.display = 'none';
+  setProgress(100);
+}
+
+window.tryAsText = async function() {
+  const f = state.files[state.currentIndex];
+  if (!f) return;
+  const text = await readAsText(f.file);
+  contentArea.className = 'view-text';
+  contentArea.innerHTML = `<pre>${escapeHtml(text)}</pre>`;
+  enableSearch(text);
+  enableCopy(text);
+};
+
+// ===== SEARCH =====
+let searchableText = '';
+
+function enableSearch(text) {
+  searchableText = text || '';
+  $('copy-btn').style.display = '';
+}
+
+function enableCopy(text, fn) {
+  $('copy-btn').style.display = '';
+  $('copy-btn').onclick = fn || (() => {
+    navigator.clipboard.writeText(text || '').then(() => showToast('✓ Copiado!'));
+  });
+}
+
+$('search-close').onclick = () => {
+  searchWrap.style.display = 'none';
+  clearHighlights();
+};
+
+$('search-input').addEventListener('input', performSearch);
+$('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') nextSearchMatch(e.shiftKey ? -1 : 1);
+});
+
+function performSearch() {
+  const q = $('search-input').value.trim();
+  if (!q) { clearHighlights(); $('search-count').textContent = ''; return; }
+  
+  // Basic text highlight in pre elements
+  const pres = contentArea.querySelectorAll('pre, .md-body, .docx-body');
+  let count = 0;
+  
+  state.searchMatches = [];
+  pres.forEach(el => {
+    const text = el.textContent;
+    const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    let m;
+    while ((m = re.exec(text)) !== null) count++;
+  });
+  
+  $('search-count').textContent = count > 0 ? `${count} resultado${count>1?'s':''}` : 'Nenhum resultado';
+}
+
+function clearHighlights() {
+  $('search-input').value = '';
+  $('search-count').textContent = '';
+}
+
+function nextSearchMatch(dir=1) {}
+
+// ===== DOWNLOAD =====
+function downloadCurrent() {
+  const f = state.files[state.currentIndex];
+  if (!f) return;
+  const url = URL.createObjectURL(f.file);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = f.file.name;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Download iniciado!');
+}
+
+window.downloadCurrent = downloadCurrent;
+$('download-btn').onclick = downloadCurrent;
+
+// ===== NAV =====
+$('prev-file').onclick = () => {
+  if (state.currentIndex > 0) openFile(state.currentIndex - 1);
+};
+$('next-file').onclick = () => {
+  if (state.currentIndex < state.files.length - 1) openFile(state.currentIndex + 1);
+};
+
+// ===== KEYBOARD =====
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'o') { e.preventDefault(); fileInput.click(); }
+    if (e.key === 'f') { e.preventDefault(); toggleSearch(); }
+    if (e.key === 'w') { e.preventDefault(); if (state.currentIndex >= 0) removeFile(state.currentIndex); }
+  }
+  if (e.key === 'Escape') {
+    searchWrap.style.display = 'none';
+    clearHighlights();
+  }
+});
+
+function toggleSearch() {
+  if (!searchableText) return;
+  const vis = searchWrap.style.display !== 'none';
+  searchWrap.style.display = vis ? 'none' : 'flex';
+  if (!vis) { $('search-input').focus(); $('search-input').select(); }
+}
+
+// ===== DRAG & DROP =====
+document.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+document.addEventListener('dragleave', e => { if (e.relatedTarget === null) dropZone.classList.remove('drag-over'); });
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const files = [...e.dataTransfer.files];
+  if (files.length) addFiles(files);
+});
+
+// ===== FILE INPUT =====
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) addFiles([...e.target.files]);
+  fileInput.value = '';
+});
+
+// ===== SIDEBAR TOGGLE =====
+$('sidebar-toggle').onclick = () => sidebar.classList.toggle('open');
+
+// ===== FULLSCREEN =====
+$('fullscreen-btn').onclick = () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(()=>{});
+  } else {
+    document.exitFullscreen();
+  }
+};
+
+// ===== ZOOM KEYS =====
+$('zoom-in').onclick = () => {};
+$('zoom-out').onclick = () => {};
+$('zoom-reset').onclick = () => {};
+
+// ===== ESCAPE HTML =====
+function escapeHtml(str) {
+  if (typeof str !== 'string') str = String(str ?? '');
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ===== PWA INSTALL =====
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  $('install-banner').classList.add('show');
+});
+
+$('install-btn').onclick = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') { showToast('✓ UniRead instalado!'); }
+  deferredPrompt = null;
+  $('install-banner').classList.remove('show');
+};
+
+$('install-dismiss').onclick = () => $('install-banner').classList.remove('show');
+
+window.addEventListener('appinstalled', () => showToast('✓ UniRead instalado com sucesso!'));
+
+// ===== SERVICE WORKER =====
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').then(reg => {
+    console.log('[UniRead] Service Worker registrado:', reg.scope);
+  }).catch(err => console.warn('[UniRead] SW:', err));
+}
+
+// ===== PASTE SUPPORT =====
+document.addEventListener('paste', e => {
+  const items = [...(e.clipboardData.items || [])];
+  const fileItem = items.find(i => i.kind === 'file');
+  if (fileItem) {
+    const f = fileItem.getAsFile();
+    if (f) addFiles([f]);
+  }
+});
+
+// ===== KEYBOARD NAV =====
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowLeft' && state.currentIndex > 0) openFile(state.currentIndex - 1);
+  if (e.key === 'ArrowRight' && state.currentIndex < state.files.length - 1) openFile(state.currentIndex + 1);
+});
+
+showEmpty();
+
+// ===== THEME =====
+const themeBtn = $('theme-btn');
+let isLight = localStorage.getItem('uniread-theme') === 'light';
+function applyTheme() {
+  document.body.classList.toggle('light', isLight);
+  themeBtn.textContent = isLight ? '🌞' : '🌙';
+  localStorage.setItem('uniread-theme', isLight ? 'light' : 'dark');
+}
+applyTheme();
+themeBtn.onclick = () => { isLight = !isLight; applyTheme(); };
+
+// ===== INDEXEDDB RECENT FILES =====
+let db = null;
+const DB_NAME = 'uniread', DB_VER = 1;
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('recent')) {
+        const os = d.createObjectStore('recent', { keyPath: 'id', autoIncrement: true });
+        os.createIndex('name', 'name', { unique: false });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror = rej;
+  });
+}
+
+async function saveRecent(file) {
+  if (!db) return;
+  try {
+    const tx = db.transaction('recent', 'readwrite');
+    const store = tx.objectStore('recent');
+    // Remove duplicates
+    const req = store.index('name').getAll(file.name);
+    req.onsuccess = e => {
+      e.target.result.forEach(r => store.delete(r.id));
+      store.add({ name: file.name, size: file.size, type: file.type || '', date: Date.now() });
+    };
+    renderRecent();
+  } catch {}
+}
+
+async function loadRecent() {
+  if (!db) return [];
+  return new Promise(res => {
+    const tx = db.transaction('recent', 'readonly');
+    const store = tx.objectStore('recent');
+    const req = store.getAll();
+    req.onsuccess = () => res((req.result || []).sort((a,b) => b.date - a.date).slice(0, 10));
+    req.onerror = () => res([]);
+  });
+}
+
+async function renderRecent() {
+  const items = await loadRecent();
+  const section = $('recent-section');
+  const list = $('recent-list');
+  if (!items.length) { section.style.display = 'none'; return; }
+  section.style.display = '';
+  list.innerHTML = items.map(item => {
+    const ago = timeAgo(item.date);
+    return `<div class="recent-item">
+      <span class="file-ext-badge">${(item.name.split('.').pop()||'?').toLowerCase()}</span>
+      <span class="recent-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+      <span class="recent-date">${ago}</span>
+    </div>`;
+  }).join('');
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'agora';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'h';
+  return Math.floor(diff/86400000) + 'd';
+}
+
+openDB().then(() => renderRecent());
+
+// ===== STATS BAR =====
+const statsBar = $('stats-bar');
+
+function showStats(text) {
+  if (!text) { statsBar.style.display = 'none'; return; }
+  statsBar.style.display = 'flex';
+  const lines = text.split('\n').length;
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  const chars = text.length;
+  $('stat-lines').textContent = lines.toLocaleString('pt-BR') + ' linhas';
+  $('stat-words').textContent = words.toLocaleString('pt-BR') + ' palavras';
+  $('stat-chars').textContent = chars.toLocaleString('pt-BR') + ' chars';
+}
+
+// ===== DRAG INDICATOR =====
+const dragIndicator = $('drag-indicator');
+let dragCounter = 0;
+document.addEventListener('dragenter', e => {
+  if ([...e.dataTransfer.types].includes('Files')) { dragCounter++; dragIndicator.classList.add('show'); }
+});
+document.addEventListener('dragleave', () => { dragCounter--; if (dragCounter <= 0) { dragCounter = 0; dragIndicator.classList.remove('show'); } });
+document.addEventListener('drop', () => { dragCounter = 0; dragIndicator.classList.remove('show'); });
+
+// ===== PRINT =====
+$('print-btn').onclick = () => window.print();
+
+// ===== DIFF VIEWER =====
+function renderDiff(text) {
+  const lines = text.split('\n');
+  const html = lines.map(line => {
+    if (line.startsWith('+++') || line.startsWith('---')) return `<span style="font-weight:700;color:var(--text)">${escapeHtml(line)}</span>`;
+    if (line.startsWith('+')) return `<span class="diff-add">${escapeHtml(line)}</span>`;
+    if (line.startsWith('-')) return `<span class="diff-del">${escapeHtml(line)}</span>`;
+    if (line.startsWith('@@')) return `<span class="diff-hunk">${escapeHtml(line)}</span>`;
+    return escapeHtml(line);
+  }).join('\n');
+  return html;
+}
+
+// ===== VCF VIEWER =====
+function parseVCF(text) {
+  const contacts = [];
+  const cards = text.split(/BEGIN:VCARD/i).filter(c => c.trim());
+  for (const card of cards) {
+    const contact = {};
+    const lines = card.split('\n');
+    for (const line of lines) {
+      const [key, ...vals] = line.split(':');
+      const val = vals.join(':').trim();
+      const k = key.split(';')[0].toUpperCase();
+      if (k === 'FN') contact.name = val;
+      else if (k === 'TEL') contact.tel = contact.tel ? contact.tel + ', ' + val : val;
+      else if (k === 'EMAIL') contact.email = contact.email ? contact.email + ', ' + val : val;
+      else if (k === 'ORG') contact.org = val;
+      else if (k === 'TITLE') contact.title = val;
+      else if (k === 'ADR') contact.adr = val.replace(/;/g, ' ').trim();
+      else if (k === 'URL') contact.url = val;
+      else if (k === 'NOTE') contact.note = val;
+    }
+    if (contact.name) contacts.push(contact);
+  }
+  return contacts;
+}
+
+// ===== ICS VIEWER =====
+function parseICS(text) {
+  const events = [];
+  const blocks = text.split(/BEGIN:VEVENT/i).filter(b => b.trim());
+  for (const block of blocks) {
+    const ev = {};
+    block.split('\n').forEach(line => {
+      const col = line.indexOf(':');
+      if (col < 0) return;
+      const k = line.slice(0, col).split(';')[0].toUpperCase().trim();
+      const v = line.slice(col + 1).trim();
+      if (k === 'SUMMARY') ev.summary = v;
+      else if (k === 'DTSTART') ev.start = formatICSDate(v);
+      else if (k === 'DTEND') ev.end = formatICSDate(v);
+      else if (k === 'LOCATION') ev.location = v;
+      else if (k === 'DESCRIPTION') ev.description = v.replace(/\\n/g,'\n');
+      else if (k === 'ORGANIZER') ev.organizer = v.replace('MAILTO:', '');
+    });
+    if (ev.summary) events.push(ev);
+  }
+  return events;
+}
+
+function formatICSDate(str) {
+  if (!str || str.length < 8) return str;
+  try {
+    const y = str.slice(0,4), m = str.slice(4,6), d = str.slice(6,8);
+    const h = str.slice(9,11) || '00', min = str.slice(11,13) || '00';
+    return `${d}/${m}/${y}${h !== '00' ? ' ' + h + ':' + min : ''}`;
+  } catch { return str; }
+}
+
+// ===== OVERRIDE/EXTEND HANDLERS =====
+
+// Extend handleText to handle special text-based formats
+const _origHandleText = handleText;
+window.handleText = async function(file, type) {
+  const ext = getExt(file.name);
+  const text = await readAsText(file);
+
+  // DIFF/PATCH
+  if (['diff','patch'].includes(ext)) {
+    contentArea.className = 'view-code';
+    contentArea.innerHTML = \`<pre>\${renderDiff(text)}</pre>\`;
+    enableSearch(text); enableCopy(text); showStats(text);
+    zoomControls.style.display = 'none'; setProgress(100); return;
+  }
+
+  // VCF - vCard
+  if (ext === 'vcf') {
+    const contacts = parseVCF(text);
+    contentArea.className = 'view-text';
+    contentArea.innerHTML = '<div class="card-viewer">' + contacts.map(c => \`
+      <div class="contact-card">
+        <div class="contact-name">👤 \${escapeHtml(c.name)}</div>
+        \${c.org ? \`<div class="contact-field"><strong>Empresa</strong>\${escapeHtml(c.org)}</div>\` : ''}
+        \${c.title ? \`<div class="contact-field"><strong>Cargo</strong>\${escapeHtml(c.title)}</div>\` : ''}
+        \${c.tel ? \`<div class="contact-field"><strong>Tel</strong>\${escapeHtml(c.tel)}</div>\` : ''}
+        \${c.email ? \`<div class="contact-field"><strong>Email</strong>\${escapeHtml(c.email)}</div>\` : ''}
+        \${c.adr ? \`<div class="contact-field"><strong>Endereço</strong>\${escapeHtml(c.adr)}</div>\` : ''}
+        \${c.url ? \`<div class="contact-field"><strong>URL</strong><a href="\${escapeHtml(c.url)}" target="_blank">\${escapeHtml(c.url)}</a></div>\` : ''}
+        \${c.note ? \`<div class="contact-field"><strong>Nota</strong>\${escapeHtml(c.note)}</div>\` : ''}
+      </div>\`).join('') + '</div>';
+    enableSearch(text); enableCopy(text); showStats(text);
+    zoomControls.style.display = 'none'; setProgress(100); return;
+  }
+
+  // ICS - Calendar
+  if (ext === 'ics') {
+    const events = parseICS(text);
+    contentArea.className = 'view-text';
+    contentArea.innerHTML = '<div class="card-viewer">' + events.map(e => \`
+      <div class="contact-card">
+        <div class="contact-name">📅 \${escapeHtml(e.summary)}</div>
+        \${e.start ? \`<div class="contact-field"><strong>Início</strong>\${escapeHtml(e.start)}</div>\` : ''}
+        \${e.end ? \`<div class="contact-field"><strong>Fim</strong>\${escapeHtml(e.end)}</div>\` : ''}
+        \${e.location ? \`<div class="contact-field"><strong>Local</strong>\${escapeHtml(e.location)}</div>\` : ''}
+        \${e.organizer ? \`<div class="contact-field"><strong>Org.</strong>\${escapeHtml(e.organizer)}</div>\` : ''}
+        \${e.description ? \`<div class="contact-field"><strong>Desc.</strong>\${escapeHtml(e.description.slice(0,200))}</div>\` : ''}
+      </div>\`).join('') + '</div>';
+    enableSearch(text); enableCopy(text);
+    zoomControls.style.display = 'none'; setProgress(100); return;
+  }
+
+  // LOG files - colorize by level
+  if (['log','logs'].includes(ext)) {
+    contentArea.className = 'view-code';
+    const colored = text.split('\n').map(line => {
+      const l = line.toLowerCase();
+      if (l.includes('error') || l.includes('fatal') || l.includes('crítico')) 
+        return \`<span style="color:#ff7171">\${escapeHtml(line)}</span>\`;
+      if (l.includes('warn') || l.includes('warning') || l.includes('aviso')) 
+        return \`<span style="color:#ffb347">\${escapeHtml(line)}</span>\`;
+      if (l.includes('info') || l.includes('debug')) 
+        return \`<span style="color:#4db8ff">\${escapeHtml(line)}</span>\`;
+      if (l.includes('success') || l.includes('ok') || l.includes('sucesso')) 
+        return \`<span style="color:#47ff8a">\${escapeHtml(line)}</span>\`;
+      return escapeHtml(line);
+    }).join('\n');
+    contentArea.innerHTML = \`<pre>\${colored}</pre>\`;
+    enableSearch(text); enableCopy(text); showStats(text);
+    zoomControls.style.display = 'none'; setProgress(100); return;
+  }
+
+  // INI / ENV / CFG / CONF / TOML - syntax color
+  if (['ini','env','cfg','conf','config','toml','editorconfig','properties'].includes(ext)) {
+    contentArea.className = 'view-code';
+    const colored = text.split('\n').map(line => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('#') || trimmed.startsWith(';')) return \`<span style="color:var(--text2);font-style:italic">\${escapeHtml(line)}</span>\`;
+      if (trimmed.startsWith('[')) return \`<span style="color:var(--accent);font-weight:700">\${escapeHtml(line)}</span>\`;
+      const eq = line.indexOf('=');
+      if (eq > 0) {
+        const k = line.slice(0, eq); const v = line.slice(eq);
+        return \`<span style="color:#a8ff78">\${escapeHtml(k)}</span><span style="color:var(--text2)">=</span><span style="color:#ffd47e">\${escapeHtml(v.slice(1))}</span>\`;
+      }
+      return escapeHtml(line);
+    }).join('\n');
+    contentArea.innerHTML = \`<pre>\${colored}</pre>\`;
+    enableSearch(text); enableCopy(text); showStats(text);
+    zoomControls.style.display = 'none'; setProgress(100); return;
+  }
+
+  // Default text
+  contentArea.className = 'view-text';
+  contentArea.innerHTML = \`<pre>\${escapeHtml(text)}</pre>\`;
+  enableSearch(text); enableCopy(text); showStats(text);
+  zoomControls.style.display = 'none'; setProgress(100);
+};
+
+// ===== PATCH addFiles to save recent =====
+const _origAddFiles = addFiles;
+function addFilesPatched(files) {
+  _origAddFiles(files);
+  files.forEach(f => saveRecent(f));
+}
+
+// Override drop and input
+document.removeEventListener('drop', document._dropHandler);
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  dragIndicator.classList.remove('show');
+  dragCounter = 0;
+  const files = [...e.dataTransfer.files];
+  if (files.length) addFilesPatched(files);
+});
+fileInput.onchange = e => {
+  if (e.target.files.length) addFilesPatched([...e.target.files]);
+  fileInput.value = '';
+};
+
+// ===== PATCH openFile to show stats =====
+const _origOpenFile = openFile;
+function openFilePatched(idx) {
+  statsBar.style.display = 'none';
+  $('print-btn').style.display = '';
+  _origOpenFile(idx);
+}
+// re-bind nav buttons
+$('prev-file').onclick = () => { if (state.currentIndex > 0) openFilePatched(state.currentIndex - 1); };
+$('next-file').onclick = () => { if (state.currentIndex < state.files.length - 1) openFilePatched(state.currentIndex + 1); };
+
+// Patch enableSearch to also update stats
+const _origEnableSearch = enableSearch;
+function enableSearch(text) {
+  searchableText = text || '';
+  $('copy-btn').style.display = '';
+  if (text) showStats(text);
+}
+
+// ===== EXTRA KEYBOARD =====
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+    const f = state.files[state.currentIndex];
+    if (f) { e.preventDefault(); window.print(); }
+  }
+});
+
+
+// ===== SHARE TARGET (Web Share API) =====
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'share-files') {
+      addFilesPatched(e.data.files);
+    }
+  });
+}
+
+// ===== OPEN FILE HANDLER (File System API) =====
+if ('launchQueue' in window) {
+  window.launchQueue.setConsumer(launchParams => {
+    if (launchParams.files.length) {
+      Promise.all(launchParams.files.map(h => h.getFile())).then(files => {
+        addFilesPatched(files);
+      });
+    }
+  });
+}
+
+console.log('%c UniRead v1.0 ', 'background:#6c47ff;color:#fff;font-size:16px;font-weight:bold;border-radius:4px;padding:4px 8px');
+console.log('70+ formatos suportados. Arraste e solte arquivos para começar!');
+</script>
+</body>
+</html>

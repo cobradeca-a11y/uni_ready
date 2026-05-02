@@ -1,0 +1,61 @@
+{
+  "name": "UniRead — Leitor Universal",
+  "short_name": "UniRead",
+  "description": "Leitor universal de arquivos: documentos, imagens, código, dados, áudio, vídeo e mais.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#6c47ff",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "./index.html",
+      "accept": {
+        "text/*": [".txt", ".md", ".csv", ".log", ".html", ".htm", ".css", ".js", ".ts", ".json", ".xml", ".yaml", ".yml", ".toml", ".ini", ".cfg", ".env", ".sh", ".bat", ".py", ".java", ".c", ".cpp", ".h", ".rs", ".go", ".php", ".rb", ".swift", ".kt", ".sql", ".r", ".tex", ".rtf"],
+        "application/pdf": [".pdf"],
+        "application/msword": [".doc"],
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
+        "application/vnd.ms-excel": [".xls"],
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+        "application/vnd.ms-powerpoint": [".ppt"],
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation": [".pptx"],
+        "application/vnd.oasis.opendocument.text": [".odt"],
+        "application/vnd.oasis.opendocument.spreadsheet": [".ods"],
+        "application/vnd.oasis.opendocument.presentation": [".odp"],
+        "image/*": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".svg", ".webp", ".ico", ".tiff", ".tif", ".avif", ".heic", ".heif", ".raw", ".cr2", ".nef"],
+        "audio/*": [".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a", ".wma", ".opus", ".aiff"],
+        "video/*": [".mp4", ".webm", ".ogv", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".m4v", ".3gp"],
+        "application/zip": [".zip"],
+        "application/x-rar-compressed": [".rar"],
+        "application/x-7z-compressed": [".7z"],
+        "application/epub+zip": [".epub"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": "./index.html",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [{ "name": "file", "accept": ["*/*"] }]
+    }
+  },
+  "categories": ["productivity", "utilities", "education"],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
