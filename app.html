@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#0a0a0b" />
   <meta name="description" content="UniRead — leitor universal local de arquivos para PWA." />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -14,9 +14,8 @@
   <link rel="icon" href="icon-192.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles/app.css?v=4.10.0" />
-  <link rel="stylesheet" href="styles/fixes.css?v=4.10.0" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles/app.css?v=5.0.0" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
@@ -27,14 +26,20 @@
   <div class="app-shell">
     <header class="topbar">
       <a class="brand" href="app.html" aria-label="UniRead início">
-        <span class="brand-mark">UR</span>
+        <span class="brand-mark">Ur</span>
         <span>
           <strong>UniRead</strong>
           <small>Leitor universal local</small>
         </span>
       </a>
       <nav class="top-actions" aria-label="Ações principais">
-        <button class="icon-button" id="menuButton" type="button" aria-label="Abrir painel">☰</button>
+        <button class="icon-button" id="menuButton" type="button" aria-label="Abrir painel">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="2" y="4" width="12" height="1.5" rx="0.75" fill="currentColor"/>
+            <rect x="2" y="7.25" width="12" height="1.5" rx="0.75" fill="currentColor"/>
+            <rect x="2" y="10.5" width="12" height="1.5" rx="0.75" fill="currentColor"/>
+          </svg>
+        </button>
         <label class="primary-button" for="fileInput">Abrir arquivos</label>
         <button class="ghost-button" id="installButton" type="button" hidden>Instalar</button>
       </nav>
@@ -43,17 +48,17 @@
     <main class="workspace">
       <aside class="sidebar" id="sidebar" aria-label="Painel de arquivos">
         <section class="panel-section">
-          <div class="section-title">Arquivos</div>
+          <div class="section-title">Arquivos abertos</div>
           <div class="file-list" id="fileList">
             <p class="muted compact">Nenhum arquivo aberto.</p>
           </div>
         </section>
         <section class="panel-section">
-          <div class="section-title">Suporte</div>
+          <div class="section-title">Formatos suportados</div>
           <div class="support-grid" aria-label="Tipos suportados">
-            <span>TXT</span><span>MD</span><span>PDF</span><span>JSON</span><span>CSV</span><span>HTML</span><span>DOCX</span><span>XLSX</span><span>ZIP</span><span>IMG</span><span>ÁUDIO</span><span>VÍDEO</span>
+            <span>TXT</span><span>MD</span><span>PDF</span><span>JSON</span><span>CSV</span><span>HTML</span><span>DOCX</span><span>XLSX</span><span>ZIP</span><span>IMG</span><span>MP3</span><span>MP4</span>
           </div>
-          <p class="muted compact">DOC antigo, PPT/PPTX, RAR, 7Z, HEIC e RAW podem depender de app externo.</p>
+          <p class="muted compact">DOC, PPT/PPTX, RAR, HEIC podem depender de app externo.</p>
         </section>
       </aside>
 
@@ -75,7 +80,7 @@
           <div class="drop-hero" id="emptyState">
             <span class="drop-icon">↥</span>
             <h1>Abra qualquer arquivo do dia a dia.</h1>
-            <p>Arraste arquivos para cá ou toque em Abrir arquivos. A leitura acontece localmente no navegador.</p>
+            <p>Arraste arquivos para cá ou toque em <em>Abrir arquivos</em>. Leitura local, sem servidor.</p>
           </div>
           <div class="viewer-body" id="viewerBody" hidden></div>
         </div>
