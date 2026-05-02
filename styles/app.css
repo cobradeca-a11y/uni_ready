@@ -29,6 +29,11 @@
   --reader-line-height: 1.78;
 }
 
+/* ─── Critical: ensure [hidden] always wins ───────────────────────────────── */
+[hidden] { display: none !important; }
+
+
+
 *, *::before, *::after { box-sizing: border-box; }
 html, body { min-height: 100%; }
 button, input, textarea, select, a { font: inherit; }
@@ -678,9 +683,10 @@ body[data-theme="light"] .mini-stage, body[data-theme="light"] .mini-controls bu
   .viewer-card { width: 100%; min-height: calc(100dvh - 92px); border-radius: var(--r-lg); }
   .drop-zone { min-height: calc(100dvh - 158px); padding: 10px; }
   .drop-hero, .viewer-body, .preview-box { min-height: calc(100dvh - 192px); }
-  .viewer-toolbar { align-items: flex-start; flex-direction: column; }
+  .viewer-toolbar { align-items: flex-start; flex-direction: column; gap: 8px; }
   .viewer-actions { width: 100%; }
-  .viewer-actions .ghost-button { flex: 1; }
+  .viewer-actions .ghost-button { flex: 1; min-height: 40px; }
+  .viewer-toolbar:not(:has(.viewer-actions [hidden])) .file-heading { margin-bottom: 0; }
   .ai-panel { top: 76px; left: 8px; right: 8px; bottom: 8px; width: auto; }
   .sidebar {
     display: block !important;
@@ -696,15 +702,8 @@ body[data-theme="light"] .mini-stage, body[data-theme="light"] .mini-controls bu
     overflow-y: auto;
   }
   .sidebar.open { transform: translateX(0); }
-  .app-shell:has(.sidebar.open)::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 9990;
-    background: rgba(0,0,0,0.62);
-    backdrop-filter: blur(4px);
-    pointer-events: none;
-  }
+  body.sidebar-drawer-open .sidebar { transform: translateX(0); }
+    /* overlay: see sidebar-overlay rule below */
   .mini-stage video { max-height: 168px; }
 }
 
@@ -723,4 +722,36 @@ body[data-theme="light"] .mini-stage, body[data-theme="light"] .mini-controls bu
   .viewer-toolbar { padding: 10px; }
   .drop-hero h1 { font-size: clamp(2.1rem, 13vw, 3.4rem); }
   .drop-icon { width: 78px; height: 78px; font-size: 2.1rem; border-radius: 20px; }
+}
+
+/* Toolbar no-actions handled below */
+
+/* ─── Sidebar overlay — replaces :has() for Android compatibility ────────── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  background: rgba(0, 0, 0, 0);
+  cursor: pointer;
+  transition: background 0.22s ease;
+}
+body.sidebar-drawer-open .sidebar-overlay {
+  display: block;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+
+
+/* ─── Toolbar: no-actions hides the empty actions row ───────────────────── */
+.viewer-toolbar.no-actions .viewer-actions {
+  display: none !important;
+}
+@media (max-width: 900px) {
+  .viewer-toolbar.no-actions {
+    flex-direction: row;
+    align-items: center;
+  }
 }
