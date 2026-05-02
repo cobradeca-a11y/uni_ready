@@ -21,11 +21,14 @@ const els = {
   dropZone: $('#dropZone'),
   emptyState: $('#emptyState'),
   viewerBody: $('#viewerBody'),
+  viewerToolbar: $('#viewerToolbar'),
+  viewerActions: $('#viewerActions'),
   currentName: $('#currentName'),
   currentMeta: $('#currentMeta'),
   copyButton: $('#copyButton'),
   printButton: $('#printButton'),
   downloadLink: $('#downloadLink'),
+  sidebarOverlay: $('#sidebarOverlay'),
   toast: $('#toast')
 };
 
@@ -107,6 +110,10 @@ function setActionVisibility(show, canCopy = false) {
   els.downloadLink.hidden = !show;
   els.printButton.hidden = !show;
   els.copyButton.hidden = !show || !canCopy;
+
+  // Toggle class so CSS can hide the actions row when all buttons are hidden
+  const anyVisible = show; // at least downloadLink shows when show=true
+  els.viewerToolbar.classList.toggle('no-actions', !anyVisible);
 }
 
 function copyCurrent() {
@@ -147,7 +154,7 @@ function createTopButtons() {
   menu.hidden = true;
 
   const items = [
-    ['Claro/Escuro', () => {
+    ['Claro / Escuro', () => {
       const next = document.body.dataset.theme === 'light' ? 'dark' : 'light';
       runLayoutAction({ type: 'set_theme', payload: { theme: next } });
     }],
@@ -163,33 +170,51 @@ function createTopButtons() {
     item.textContent = label;
     item.addEventListener('click', () => {
       handler();
-      menu.hidden = true;
-      modeButton.setAttribute('aria-expanded', 'false');
+      closeMenu();
     });
     menu.appendChild(item);
   });
 
+  function closeMenu() {
+    menu.hidden = true;
+    modeButton.setAttribute('aria-expanded', 'false');
+  }
+
   modeButton.addEventListener('click', event => {
     event.stopPropagation();
-    menu.hidden = !menu.hidden;
-    modeButton.setAttribute('aria-expanded', String(!menu.hidden));
+    const isOpen = !menu.hidden;
+    menu.hidden = isOpen;
+    modeButton.setAttribute('aria-expanded', String(!isOpen));
   });
 
   window.addEventListener('click', event => {
-    if (!menuWrap.contains(event.target)) {
-      menu.hidden = true;
-      modeButton.setAttribute('aria-expanded', 'false');
-    }
+    if (!menuWrap.contains(event.target)) closeMenu();
   });
 
   menuWrap.append(modeButton, menu);
   actions.append(menuWrap);
 }
 
-function toggleSidebarMenu() {
-  runLayoutAction({ type: 'toggle_sidebar', payload: { open: true } });
-  els.sidebar.classList.toggle('open');
-  if (els.sidebar.classList.contains('open')) toast('Painel aberto.');
+// ─── Sidebar drawer (mobile) ────────────────────────────────────────────────
+function openSidebar() {
+  els.sidebar.classList.add('open');
+  document.body.classList.add('sidebar-drawer-open');
+  els.menuButton.setAttribute('aria-expanded', 'true');
+}
+
+function closeSidebar() {
+  els.sidebar.classList.remove('open');
+  document.body.classList.remove('sidebar-drawer-open');
+  els.menuButton.setAttribute('aria-expanded', 'false');
+}
+
+function toggleSidebar() {
+  if (els.sidebar.classList.contains('open')) {
+    closeSidebar();
+  } else {
+    openSidebar();
+    toast('Painel aberto.');
+  }
 }
 
 function registerEvents() {
@@ -199,10 +224,24 @@ function registerEvents() {
     const item = event.target.closest('[data-index]');
     if (!item) return;
     openFile(Number(item.dataset.index));
-    els.sidebar.classList.remove('open');
+    closeSidebar();
   });
 
-  els.menuButton.addEventListener('click', toggleSidebarMenu);
+  els.menuButton.addEventListener('click', toggleSidebar);
+
+  // Overlay click closes sidebar
+  if (els.sidebarOverlay) {
+    els.sidebarOverlay.addEventListener('click', closeSidebar);
+  }
+
+  // Swipe to close sidebar (touch gesture)
+  let touchStartX = 0;
+  els.sidebar.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  els.sidebar.addEventListener('touchend', e => {
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (diff > 60) closeSidebar(); // swipe left to close
+  }, { passive: true });
+
   els.copyButton.addEventListener('click', copyCurrent);
   els.printButton.addEventListener('click', () => window.print());
 
@@ -264,6 +303,7 @@ function registerServiceWorker() {
   });
 }
 
+// Init with no-actions class until a file is opened
 applyLayout();
 state.mediaPlayer = installMediaPlayer({ sidebar: els.sidebar, toast });
 createTopButtons();
@@ -272,3 +312,8 @@ installLayoutShortcuts();
 registerEvents();
 registerPwaFileHandlers();
 registerServiceWorker();
+
+// Start with toolbar in no-actions state (no file open)
+if (els.viewerToolbar) {
+  els.viewerToolbar.classList.add('no-actions');
+}
